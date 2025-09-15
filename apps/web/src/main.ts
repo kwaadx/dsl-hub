@@ -1,48 +1,60 @@
-import App from './App.vue'
-import store from './store'
+import {createApp} from 'vue'
+import {createPinia} from 'pinia'
+import {createPersistedState} from 'pinia-plugin-persistedstate'
 
 import PrimeVue from 'primevue/config'
 import ConfirmationService from 'primevue/confirmationservice'
 import DialogService from 'primevue/dialogservice'
 import ToastService from 'primevue/toastservice'
 
-import 'primeicons/primeicons.css'
 import 'primeflex/primeflex.css'
-import 'material-symbols/outlined.css'
+import 'primeicons/primeicons.css'
 import '@/assets/css/screen.scss'
 
-import loader from 'vue3-ui-preloader'
-import 'vue3-ui-preloader/dist/loader.css'
-import VueDraggableResizable from 'vue-draggable-resizable'
-
-import { setupI18n } from './i18n'
 import router from './router'
+import App from './App.vue'
+import {le, ll, lw} from '@/utils/logger'
 
-import { le, ll, lw } from '@/utils/logger'
-import 'vue-draggable-resizable/style.css'
+const pinia = createPinia()
 
-import { registerSW } from 'virtual:pwa-register'
-import { createApp } from 'vue'
+const storage: Storage | undefined =
+  typeof window !== 'undefined' ? window.localStorage : undefined
 
-if ('serviceWorker' in navigator) {
-  registerSW({ immediate: true, type: 'module' })
-}
-
-window.ll = ll
-window.lw = lw
-window.le = le
+pinia.use(
+  createPersistedState({
+    key: (id) => `dsl-hub-web-${id}`,
+    storage,
+  })
+)
 
 const app = createApp(App)
 
-app.use(setupI18n())
-app.use(store)
+app.use(pinia)
 app.use(router)
-app.use(PrimeVue)
+app.use(PrimeVue, {
+  ripple: true,
+})
 app.use(ConfirmationService)
 app.use(DialogService)
 app.use(ToastService)
 
-app.component('VueDraggableResizable', VueDraggableResizable)
-app.component('UIPreloader', loader)
+declare global {
+  interface Window {
+    ll: typeof ll
+    lw: typeof lw
+    le: typeof le
+  }
+}
+if (typeof window !== 'undefined') {
+  window.ll = ll
+  window.lw = lw
+  window.le = le
+}
 
-app.mount('#app')
+if (import.meta.env.DEV) {
+  app.config.performance = true
+}
+
+router.isReady().then(() => {
+  app.mount('#app')
+})

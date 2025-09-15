@@ -22,7 +22,6 @@ export default [
       import: pluginImport,
     },
     rules: {
-      // Vue specific rules
       'vue/no-v-html': 'off',
       'vue/html-indent': ['error', 2],
       'vue/max-attributes-per-line': [
@@ -45,7 +44,6 @@ export default [
       'vue/no-unused-refs': 'error',
       'vue/padding-line-between-blocks': ['error', 'always'],
 
-      // Import rules
       'import/first': 'error',
       'import/no-duplicates': 'error',
       'import/order': [
@@ -69,7 +67,6 @@ export default [
         },
       ],
 
-      // General JavaScript/TypeScript rules
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'no-debugger': 'warn',
       'no-unused-vars': [

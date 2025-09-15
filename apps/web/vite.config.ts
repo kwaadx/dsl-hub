@@ -4,42 +4,26 @@ import { PrimeVueResolver } from '@primevue/auto-import-resolver'
 import vue from '@vitejs/plugin-vue'
 import Components from 'unplugin-vue-components/vite'
 import { defineConfig, loadEnv } from 'vite'
-import { VitePWA } from 'vite-plugin-pwa'
 
 export default ({ mode }: { mode: string }) => {
-  process.env = { ...process.env, ...loadEnv(mode, process.cwd()) }
+  const env = loadEnv(mode, process.cwd(), '')
+  const PORT = Number(env.WEB_PORT || 5173)
+  const PUBLIC_HOST = env.PUBLIC_DEV_HOST || 'localhost'
+  const USE_WSS = env.VITE_HMR_USE_WSS === 'true'
 
   return defineConfig({
     server: {
-      port: 3000,
       host: true,
-      hmr: { clientPort: 443, protocol: 'wss', port: 3000 },
-      allowedHosts: process.env.VITE_ALLOWED_HOST ? [process.env.VITE_ALLOWED_HOST] : [],
+      port: PORT,
+      hmr: USE_WSS
+        ? { protocol: 'wss', host: PUBLIC_HOST, clientPort: 443 }
+        : { protocol: 'ws', host: PUBLIC_HOST, port: PORT },
+      allowedHosts: [PUBLIC_HOST],
+      watch: { usePolling: !!env.WATCH_POLL, interval: 1000 } // корисно у Docker
     },
     plugins: [
       vue(),
       Components({ dirs: [], resolvers: [PrimeVueResolver()] }),
-      VitePWA({
-        strategies: 'injectManifest',
-        srcDir: '.',
-        filename: 'service-worker.js',
-        injectRegister: false,
-        manifest: false,
-        includeAssets: [
-          'favicon/favicon.ico',
-          'favicon/favicon-16x16.png',
-          'favicon/favicon-32x32.png',
-          'favicon/apple-touch-icon.png',
-          'favicon/safari-pinned-tab.svg',
-        ],
-        devOptions: {
-          enabled: true,
-          type: 'module',
-        },
-        injectManifest: {
-          globIgnores: ['manifest.json'],
-        },
-      }),
     ],
     resolve: {
       extensions: ['*', '.js', '.vue', '.json', '.ts'],
@@ -52,22 +36,27 @@ export default ({ mode }: { mode: string }) => {
       rollupOptions: {
         input: {
           main: './index.html',
-          manifest: './public/manifest.json',
         },
         output: {
           manualChunks: {
-            vue: ['vue', 'vue-router', 'vuex', 'vuex-persist', 'vue-i18n'],
+            vue: ['vue', 'vue-router', 'vue-i18n'],
             primevue: ['primevue'],
             lodash: ['lodash'],
-            three: ['three'],
-            videoPlayer: ['@videojs-player/vue'],
-            charts: ['chart.js'],
-            showdown: ['showdown'],
+            pinia: ['pinia', 'pinia-plugin-persistedstate'],
           },
         },
       },
       chunkSizeWarningLimit: 700,
     },
-    optimizeDeps: { include: [] },
+    optimizeDeps: {
+      include: [
+        'vue',
+        'vue-router',
+        'vue-i18n',
+        'pinia',
+        'primevue',
+        'lodash'
+      ]
+    },
   })
 }

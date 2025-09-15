@@ -8,43 +8,8 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    Accordion: typeof import('primevue/accordion')['default']
-    AccordionContent: typeof import('primevue/accordioncontent')['default']
-    AccordionHeader: typeof import('primevue/accordionheader')['default']
-    AccordionPanel: typeof import('primevue/accordionpanel')['default']
-    Avatar: typeof import('primevue/avatar')['default']
-    Button: typeof import('primevue/button')['default']
-    CascadeSelect: typeof import('primevue/cascadeselect')['default']
-    Checkbox: typeof import('primevue/checkbox')['default']
-    ColorPicker: typeof import('primevue/colorpicker')['default']
-    ConfirmDialog: typeof import('primevue/confirmdialog')['default']
-    ContextMenu: typeof import('primevue/contextmenu')['default']
-    DatePicker: typeof import('primevue/datepicker')['default']
-    Dialog: typeof import('primevue/dialog')['default']
-    Drawer: typeof import('primevue/drawer')['default']
-    Dropdown: typeof import('primevue/dropdown')['default']
-    Fieldset: typeof import('primevue/fieldset')['default']
-    InputNumber: typeof import('primevue/inputnumber')['default']
-    InputText: typeof import('primevue/inputtext')['default']
-    Menu: typeof import('primevue/menu')['default']
-    Panel: typeof import('primevue/panel')['default']
-    Password: typeof import('primevue/password')['default']
-    RadioButton: typeof import('primevue/radiobutton')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
-    Select: typeof import('primevue/select')['default']
-    Tab: typeof import('primevue/tab')['default']
-    TabList: typeof import('primevue/tablist')['default']
-    TabPanel: typeof import('primevue/tabpanel')['default']
-    TabPanels: typeof import('primevue/tabpanels')['default']
-    Tabs: typeof import('primevue/tabs')['default']
-    Textarea: typeof import('primevue/textarea')['default']
     Toast: typeof import('primevue/toast')['default']
-    ToggleButton: typeof import('primevue/togglebutton')['default']
-    ToggleSwitch: typeof import('primevue/toggleswitch')['default']
-    Tree: typeof import('primevue/tree')['default']
-  }
-  export interface GlobalDirectives {
-    Tooltip: typeof import('primevue/tooltip')['default']
   }
 }
