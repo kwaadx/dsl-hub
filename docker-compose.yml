@@ -1,0 +1,27 @@
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "10"
+
+services:
+  web:
+    build: ./apps/web
+    container_name: dsl-hub-web
+    network_mode: host
+    env_file:
+      - .env
+      - .env.local
+    volumes:
+      - ./apps/web:/dsl-hub/apps/web
+      - /apps/web/node_modules
+    command: >
+      sh -c "
+      if [ \"$MODE\" = \"dev\" ]; then
+        npm install && npm run dev -- --host;
+      else
+        npm install && npm run build && npx serve dist -l ${WEB_PORT};
+      fi
+      "
+    restart: unless-stopped
+    logging: *default-logging

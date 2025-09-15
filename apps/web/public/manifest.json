@@ -1,0 +1,40 @@
+{
+  "id": "bbh.app",
+  "name": "BBH",
+  "short_name": "BBH",
+  "description": "BBH - Your all-in-one application for enhanced productivity and seamless user experience.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/favicon/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon/icon-192-monochrome.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "monochrome"
+    }
+  ],
+  "categories": [
+    "productivity",
+    "utilities"
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

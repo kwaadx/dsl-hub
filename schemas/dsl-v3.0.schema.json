@@ -1,0 +1,1165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kwaad.dev/schemas/universal-automation-dsl/v3.0",
+  "title": "Universal Automation DSL v3.0",
+  "description": "A production-grade, protocol-agnostic DSL for sources, actions, pipelines, testing, policies, and observability.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "meta",
+    "policies",
+    "observability",
+    "connections",
+    "sources",
+    "actions",
+    "pipelines",
+    "testing"
+  ],
+  "properties": {
+    "version": {
+      "const": "3.0"
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "owners": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "ai": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "generation": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "model": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "temperature": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 2
+                },
+                "maxTokens": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "connectionRef": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "policies": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Global policies and non-functionals. Unified payloadCapKB is the single source of truth for payload limits.",
+      "properties": {
+        "payloadCapKB": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rateLimits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "limit",
+              "period"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "scope": {
+                "enum": [
+                  "global",
+                  "pipeline",
+                  "action",
+                  "connection"
+                ]
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "period": {
+                "type": "string",
+                "pattern": "^[0-9]+(s|m|h|d)$"
+              }
+            }
+          }
+        },
+        "quotas": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "maxPerDay"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "maxPerDay": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "http": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "requireAuthInProd": {
+              "type": "boolean"
+            },
+            "followRedirects": {
+              "type": "boolean"
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "dataSecurity": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pseudonymize": {
+              "type": "boolean"
+            },
+            "maskingRules": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "allowedDataResidency": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "geoRouting": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "latencyRouting": {
+              "type": "boolean"
+            },
+            "regionalFailover": {
+              "type": "boolean"
+            }
+          }
+        },
+        "zeroTrust": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mTLSRequired": {
+              "type": "boolean"
+            },
+            "jwtRequired": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "observability": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Unified audit fields: auditEnabled + auditConfig (fixes v2.9 name collision).",
+      "properties": {
+        "logging": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "level": {
+              "enum": [
+                "trace",
+                "debug",
+                "info",
+                "warn",
+                "error"
+              ]
+            },
+            "format": {
+              "enum": [
+                "json",
+                "text"
+              ]
+            }
+          }
+        },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "exporter": {
+              "type": "string"
+            }
+          }
+        },
+        "tracing": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "sampler": {
+              "type": "string"
+            }
+          }
+        },
+        "profiling": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
+        "alerts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "expr"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "expr": {
+                "$ref": "#/$defs/exprOrAst"
+              },
+              "severity": {
+                "enum": [
+                  "info",
+                  "warn",
+                  "crit"
+                ]
+              }
+            }
+          }
+        },
+        "anomalies": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
+        "auditEnabled": {
+          "type": "boolean"
+        },
+        "auditConfig": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "redactFields": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "sink": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "connections": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Reusable connection registry. Refer via connectionRef everywhere (even where url is supported as a shortcut).",
+      "patternProperties": {
+        "^[a-zA-Z_][a-zA-Z0-9_\\-]{0,63}$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
+                "http",
+                "websocket",
+                "sse",
+                "kafka",
+                "mqtt",
+                "redis",
+                "eventlog",
+                "ros2",
+                "postgres",
+                "mysql",
+                "sqlite",
+                "filesystem",
+                "s3",
+                "gcs"
+              ]
+            },
+            "url": {
+              "type": "string",
+              "minLength": 1
+            },
+            "hosts": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "headers": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "auth": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "type": {
+                  "enum": [
+                    "basic",
+                    "bearer",
+                    "apiKey",
+                    "mtls",
+                    "none"
+                  ]
+                },
+                "username": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string"
+                },
+                "token": {
+                  "type": "string"
+                },
+                "apiKey": {
+                  "type": "string"
+                }
+              }
+            },
+            "tls": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "rejectUnauthorized": {
+                  "type": "boolean"
+                },
+                "ca": {
+                  "type": "string"
+                },
+                "cert": {
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string"
+                }
+              }
+            },
+            "options": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sourceBase"
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/actionBase"
+      }
+    },
+    "pipelines": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/pipeline"
+      }
+    },
+    "testing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fixtures": {
+          "type": "object"
+        },
+        "mocks": {
+          "type": "object"
+        },
+        "scenarios": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "enablePipelines": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "inputs": {
+                "type": "object"
+              },
+              "expects": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z_][a-zA-Z0-9_\\-]{1,63}$"
+    },
+    "exprString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "exprNode": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "const"
+          ],
+          "properties": {
+            "const": {}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ref"
+          ],
+          "properties": {
+            "ref": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "logic"
+          ],
+          "properties": {
+            "logic": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "and": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/exprNode"
+                  },
+                  "minItems": 1
+                },
+                "or": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/exprNode"
+                  },
+                  "minItems": 1
+                },
+                "not": {
+                  "$ref": "#/$defs/exprNode"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cmp"
+          ],
+          "properties": {
+            "cmp": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "op": {
+                  "enum": [
+                    "==",
+                    "!=",
+                    ">",
+                    ">=",
+                    "<",
+                    "<=",
+                    "in",
+                    "contains"
+                  ]
+                },
+                "left": {
+                  "$ref": "#/$defs/exprNode"
+                },
+                "right": {
+                  "$ref": "#/$defs/exprNode"
+                }
+              },
+              "required": [
+                "op",
+                "left",
+                "right"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "math"
+          ],
+          "properties": {
+            "math": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "op": {
+                  "enum": [
+                    "+",
+                    "-",
+                    "*",
+                    "/",
+                    "%"
+                  ]
+                },
+                "args": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/exprNode"
+                  },
+                  "minItems": 2
+                }
+              },
+              "required": [
+                "op",
+                "args"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "string"
+          ],
+          "properties": {
+            "string": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "op": {
+                  "enum": [
+                    "concat",
+                    "replace",
+                    "match",
+                    "lower",
+                    "upper",
+                    "trim"
+                  ]
+                },
+                "args": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/exprNode"
+                  },
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "op",
+                "args"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "map"
+          ],
+          "properties": {
+            "map": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "over": {
+                  "$ref": "#/$defs/exprNode"
+                },
+                "as": {
+                  "$ref": "#/$defs/id"
+                },
+                "do": {
+                  "$ref": "#/$defs/exprNode"
+                }
+              },
+              "required": [
+                "over",
+                "as",
+                "do"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reduce"
+          ],
+          "properties": {
+            "reduce": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "over": {
+                  "$ref": "#/$defs/exprNode"
+                },
+                "acc": {
+                  "$ref": "#/$defs/id"
+                },
+                "init": {},
+                "do": {
+                  "$ref": "#/$defs/exprNode"
+                }
+              },
+              "required": [
+                "over",
+                "acc",
+                "init",
+                "do"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "exprOrAst": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/exprString"
+        },
+        {
+          "$ref": "#/$defs/exprNode"
+        }
+      ]
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cpuMc": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "memMB": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "gpu": {
+          "type": "boolean"
+        }
+      }
+    },
+    "retryPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "retries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "backoff": {
+          "enum": [
+            "none",
+            "fixed",
+            "exp",
+            "jitter"
+          ]
+        },
+        "delayMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxDelayMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "circuitBreaker": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "failureThreshold": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "openWindowMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "halfOpenProbe": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "idempotency": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "keyExpr": {
+          "$ref": "#/$defs/exprOrAst"
+        },
+        "ttlMs": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "sourceBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "enum": [
+            "http.webhook",
+            "sse.subscribe",
+            "websocket.subscribe",
+            "kafka.subscribe",
+            "mqtt.subscribe",
+            "redis.stream.read",
+            "eventlog.subscribe",
+            "ros2.subscribe",
+            "db.listen"
+          ]
+        },
+        "connectionRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string"
+        },
+        "topic": {
+          "type": "string"
+        },
+        "stream": {
+          "type": "string"
+        },
+        "table": {
+          "type": "string"
+        },
+        "filters": {
+          "type": "object"
+        },
+        "authRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transform": {
+          "$ref": "#/$defs/exprOrAst"
+        },
+        "guard": {
+          "$ref": "#/$defs/exprOrAst"
+        }
+      }
+    },
+    "actionBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "enum": [
+            "http.request",
+            "websocket.send",
+            "kafka.publish",
+            "mqtt.publish",
+            "redis.stream.append",
+            "eventlog.append",
+            "ros2.publish",
+            "ros2.service",
+            "db.query",
+            "db.upsert",
+            "media.pull",
+            "media.push",
+            "ai.generate",
+            "fn.invoke"
+          ]
+        },
+        "connectionRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string"
+        },
+        "operation": {
+          "type": "string"
+        },
+        "topic": {
+          "type": "string"
+        },
+        "stream": {
+          "type": "string"
+        },
+        "table": {
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/exprOrAst"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "expect": {
+          "$ref": "#/$defs/exprOrAst"
+        },
+        "await": {
+          "enum": [
+            "sync",
+            "async",
+            "fireAndForget"
+          ]
+        },
+        "retry": {
+          "$ref": "#/$defs/retryPolicy"
+        },
+        "circuitBreaker": {
+          "$ref": "#/$defs/circuitBreaker"
+        },
+        "idempotency": {
+          "$ref": "#/$defs/idempotency"
+        },
+        "fallback": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/actionBase"
+          }
+        },
+        "onError": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/actionBase"
+          }
+        },
+        "finally": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/actionBase"
+          }
+        },
+        "resources": {
+          "$ref": "#/$defs/resources"
+        }
+      }
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "manual",
+            "interval",
+            "cron",
+            "scheduleWindow",
+            "event",
+            "approval",
+            "nlp.intent",
+            "onBackpressure"
+          ]
+        },
+        "every": {
+          "type": "string",
+          "pattern": "^[0-9]+(s|m|h|d)$"
+        },
+        "cron": {
+          "type": "string"
+        },
+        "window": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "start": {
+              "type": "string"
+            },
+            "end": {
+              "type": "string"
+            },
+            "timezone": {
+              "type": "string"
+            }
+          }
+        },
+        "event": {
+          "type": "string"
+        },
+        "intent": {
+          "type": "string"
+        },
+        "threshold": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "do"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "when": {
+          "$ref": "#/$defs/exprOrAst"
+        },
+        "concurrency": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "do": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/actionBase"
+          },
+          "minItems": 1
+        },
+        "else": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/actionBase"
+          }
+        }
+      }
+    },
+    "stateMachine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "initial",
+        "states"
+      ],
+      "properties": {
+        "initial": {
+          "type": "string",
+          "minLength": 1
+        },
+        "states": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "onEnter": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/actionBase"
+                }
+              },
+              "onExit": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/actionBase"
+                }
+              }
+            }
+          }
+        },
+        "transitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "from",
+              "to",
+              "when"
+            ],
+            "properties": {
+              "from": {
+                "type": "string",
+                "minLength": 1
+              },
+              "to": {
+                "type": "string",
+                "minLength": 1
+              },
+              "when": {
+                "$ref": "#/$defs/exprOrAst"
+              }
+            }
+          }
+        }
+      }
+    },
+    "pipeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "description": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "resources": {
+          "$ref": "#/$defs/resources"
+        },
+        "concurrency": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "triggers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/trigger"
+          }
+        },
+        "stateMachine": {
+          "$ref": "#/$defs/stateMachine"
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/rule"
+          }
+        }
+      }
+    }
+  }
+}

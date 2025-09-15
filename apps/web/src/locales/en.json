@@ -1,0 +1,303 @@
+{
+  "404": {
+    "header": "Page Not Found",
+    "message": "Sorry, we couldn't find the page"
+  },
+  "clipboard": {
+    "copied": "Copied!",
+    "copy_id": "Copy ID"
+  },
+  "right_drawer": {
+    "header": "Drawer",
+    "reload": "Reload",
+    "workspace": {
+      "selector": {
+        "label": "Workspace"
+      }
+    },
+    "screen": {
+      "option": {
+        "label": "options"
+      },
+      "selector": {
+        "label": "Screen"
+      },
+      "theme": {
+        "label": "Theme"
+      },
+      "font_size": {
+        "label": "Font Size"
+      },
+      "orientation": {
+        "label": "Orientation"
+      },
+      "lock_and_full": {
+        "label": "Lock & Full"
+      },
+      "wake_lock": {
+        "label": "Wake Lock"
+      }
+    },
+    "page": {
+      "selector": {
+        "label": "Page"
+      }
+    },
+    "tool": {
+      "editor": {
+        "label": "Editor"
+      },
+      "stats_monitor": {
+        "label": "Stats Monitor"
+      }
+    },
+    "ros": {
+      "label": "ROS"
+    },
+    "system": {
+      "label": "System",
+      "info": "Information",
+      "power": "Power"
+    },
+    "app": {
+      "label": "App"
+    }
+  },
+  "context_menu": {
+    "order": "Order",
+    "lock": "Lock",
+    "unlock": "Unlock",
+    "manage": "Manage",
+    "align": "Align",
+    "bottom": "Bottom",
+    "delete": "Delete",
+    "create": "Create",
+    "add": "Add",
+    "edit": "Edit",
+    "options": "Options",
+    "set_as_default": "Set as default",
+    "default": "default",
+    "add_widget": "Add widget",
+    "subscribe": "Subscribe",
+    "unsubscribe": "Unsubscribe"
+  },
+  "button": {
+    "delete": "Delete",
+    "update": "Update",
+    "create": "Create",
+    "login": "Login",
+    "logout": "Logout",
+    "back": "Back",
+    "submit": "Submit",
+    "save": "Save",
+    "add": "Add"
+  },
+  "field": {
+    "username": "Username",
+    "password": "Password"
+  },
+  "quick_editor": {},
+  "confirm_dialog": {
+    "delete_item": {
+      "message": "Are you sure you want to delete this item?",
+      "header": "Attention",
+      "accept_label": "Delete",
+      "reject_label": "Cancel"
+    }
+  },
+  "toast": {
+    "warning": "Warning",
+    "error": "Error",
+    "updated": {
+      "summary": "Update Successful",
+      "detail": "The record has been successfully updated."
+    },
+    "deleted": {
+      "summary": "Deletion Successful",
+      "detail": "The record has been successfully deleted."
+    },
+    "rejected": {
+      "summary": "Action Rejected",
+      "detail": "The action has been rejected."
+    },
+    "power_off": {
+      "summary": "Goodbye",
+      "detail": "Have a nice day! See you soon."
+    },
+    "wake_lock_not_supported": {
+      "summary": "Wake Lock Unsupported",
+      "detail": "Wake Lock is not supported on your device."
+    },
+    "server_offline": {
+      "summary": "Server Offline",
+      "detail": "Server is currently offline."
+    },
+    "server_rebooting": {
+      "summary": "Server Rebooting",
+      "detail": "Server is rebooting..."
+    },
+    "create_page_first": {
+      "summary": "No Pages",
+      "detail": "Please create a page first to proceed."
+    },
+    "create_workspace_first": {
+      "summary": "No Workspaces",
+      "detail": "Please create a workspace first to proceed."
+    },
+    "offline": {
+      "summary": "Offline",
+      "detail": "You are currently offline. Please check your internet connection and try again."
+    }
+  },
+  "dialog": {
+    "ros": {
+      "headline": "ROS",
+      "time": "Time",
+      "filter": {
+        "show_custom": "Custom",
+        "show_system": "System"
+      }
+    },
+    "persist_widget": {
+      "header": "Widget",
+      "select_placeholder": "Select widget...",
+      "dynamic_form": {
+        "header": "Param",
+        "name": "Name",
+        "description": "Description",
+        "script": "Script",
+        "param_json": {
+          "text": {
+            "value": "Text"
+          },
+          "html": {
+            "value": "HTML"
+          },
+          "button": {
+            "label": "Label",
+            "icon": "Icon",
+            "severity": "Severity",
+            "link": "Link"
+          },
+          "video": {
+            "url": "Url",
+            "type": "Type",
+            "controls": "Controls"
+          },
+          "toggleButton": {
+            "onLabel": "ON label",
+            "offLabel": "OFF label",
+            "onIcon": "ON icon",
+            "offIcon": "OFF icon",
+            "disabled": "Disabled"
+          },
+          "chart": {
+            "type": "Type",
+            "startDate": "Start date",
+            "endDate": "End date",
+            "formatDate": "Format date",
+            "realtime": "Realtime",
+            "interval": "Interval",
+            "refreshTime": "Refresh (ms)",
+            "types": {
+              "point_by_point": "Point-by-Point",
+              "sum": "Summation by Period",
+              "smoothing": "Smoothing",
+              "cumulative": "Cumulative",
+              "differential": "Differential",
+              "normalization": "Normalization",
+              "line": "- Line",
+              "scatter": "- Scatter",
+              "bar": "- Bar",
+              "area": "- Area",
+              "doughnut": "- Doughnut",
+              "pie": "- Pie",
+              "bubble": "- Bubble",
+              "point_by_point-line": "Point-by-Point: Line",
+              "point_by_point-scatter": "Point-by-Point: Scatter",
+              "point_by_point-bar": "Point-by-Point: Bar",
+              "sum-line": "Summation by Period: Line",
+              "sum-bar": "Summation by Period: Bar",
+              "smoothing-line": "Smoothing: Line",
+              "cumulative-line": "Cumulative: Line",
+              "cumulative-bar": "Cumulative: Bar",
+              "cumulative-area": "Cumulative: Area",
+              "differential-line": "Differential: Line",
+              "differential-bar": "Differential: Bar",
+              "normalization-line": "Normalization: Line",
+              "normalization-bar": "Normalization: Bar",
+              "normalization-doughnut": "Normalization: Doughnut",
+              "normalization-pie": "Normalization: Pie"
+            }
+          }
+        },
+        "bind_json": {
+          "header": "Bind",
+          "no_bindings": "No bindings found for this widget"
+        }
+      },
+      "confirm_dialog": {
+        "header": "Unsaved Changes",
+        "message": "You have unsaved changes. Are you sure you want to leave this page?",
+        "accept_label": "Leave",
+        "reject_label": "Stay"
+      }
+    },
+    "full_and_lock": {
+      "content": "Lock your screen"
+    },
+    "order_widget": {
+      "header": "List of widgets"
+    },
+    "icon_picker": {
+      "header": "Icon Picker",
+      "search": "Search icons..."
+    },
+    "power": {
+      "headline": "Action(s)",
+      "button_power_off": "Power OFF",
+      "button_reboot": "Reboot"
+    },
+    "workspace": {
+      "name": "Name",
+      "edit_workspace": "Edit Workspace",
+      "create_workspace": "Create Workspace"
+    },
+    "screen": {
+      "name": "Name",
+      "edit_screen": "Edit Screen",
+      "create_screen": "Create Screen"
+    },
+    "page": {
+      "name": "Name",
+      "edit_page": "Edit Page",
+      "create_page": "Create Page"
+    },
+    "info": {
+      "headline": "Information",
+      "header": {
+        "general": "General",
+        "ngrok": "Ngrok",
+        "ssl_certificate_installation": "Install Certificate"
+      }
+    },
+    "python_editor": {
+      "header": "Python Script Editor"
+    }
+  },
+  "validation": {
+    "already_exists": "{object} already exists",
+    "widget": {
+      "name": {
+        "invalid_format": "Name must start with a lowercase letter or underscore, and contain only lowercase letters, digits, and underscores."
+      }
+    }
+  },
+  "field_errors": {},
+  "common_error": {
+    "server_exception": "Server Error!"
+  },
+  "rotate_screen": {
+    "not_support_video_tag": "Your browser does not support the video tag. Please rotate your screen!"
+  }
+}
