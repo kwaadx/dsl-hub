@@ -4,6 +4,7 @@ import { PrimeVueResolver } from '@primevue/auto-import-resolver'
 import vue from '@vitejs/plugin-vue'
 import Components from 'unplugin-vue-components/vite'
 import { defineConfig, loadEnv } from 'vite'
+import tailwindcss from '@tailwindcss/vite'
 
 export default ({ mode }: { mode: string }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -19,9 +20,10 @@ export default ({ mode }: { mode: string }) => {
         ? { protocol: 'wss', host: PUBLIC_HOST, clientPort: 443 }
         : { protocol: 'ws', host: PUBLIC_HOST, port: PORT },
       allowedHosts: [PUBLIC_HOST],
-      watch: { usePolling: !!env.WATCH_POLL, interval: 1000 } // корисно у Docker
+      watch: { usePolling: !!env.WATCH_POLL, interval: 1000 }
     },
     plugins: [
+      tailwindcss(),
       vue(),
       Components({ dirs: [], resolvers: [PrimeVueResolver()] }),
     ],

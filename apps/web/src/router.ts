@@ -4,6 +4,7 @@ import layoutDefault from '@/layouts/default.vue'
 const routes: RouteRecordRaw[] = [
   {
     path: '/agent',
+    alias: ['/'],
     name: 'AgentPage',
     component: () => import('@/pages/AgentPage.vue'),
     meta: {

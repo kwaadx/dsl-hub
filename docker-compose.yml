@@ -13,7 +13,7 @@ services:
       - .env.local
     volumes:
       - ./apps/web:/app/web
-#      - /app/web/node_modules
+      - /app/web/node_modules
     environment:
       - MODE=dev
       - PUBLIC_DEV_HOST=localhost      # або твій ngrok-домен

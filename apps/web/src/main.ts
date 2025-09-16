@@ -7,8 +7,8 @@ import ConfirmationService from 'primevue/confirmationservice'
 import DialogService from 'primevue/dialogservice'
 import ToastService from 'primevue/toastservice'
 
-import 'primeflex/primeflex.css'
 import 'primeicons/primeicons.css'
+import '@/assets/css/tailwind.css'
 import '@/assets/css/screen.scss'
 
 import router from './router'

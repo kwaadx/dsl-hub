@@ -3,7 +3,7 @@
 </script>
 
 <template>
-404Page
+
 </template>
 
 <style scoped>
