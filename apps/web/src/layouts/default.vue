@@ -14,8 +14,8 @@
 </template>
 
 <script setup lang="ts">
-import Aside from "@/components/Aside.vue";
-import Header from "@/components/Header.vue";
-import Main from "@/components/Main.vue";
-import Footer from "@/components/Footer.vue";
+import Aside from "@/components/layout/Aside.vue";
+import Header from "@/components/layout/Header.vue";
+import Main from "@/components/layout/Main.vue";
+import Footer from "@/components/layout/Footer.vue";
 </script>
