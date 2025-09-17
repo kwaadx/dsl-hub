@@ -10,12 +10,6 @@ const baseApi = axios.create({
 // Request interceptor
 baseApi.interceptors.request.use(
   (config) => {
-    const workspaceId = store.getters['workspace/currentId']
-
-    if (workspaceId) {
-      config.headers['X-Workspace-ID'] = workspaceId
-    }
-
     return config
   },
   (error) => {

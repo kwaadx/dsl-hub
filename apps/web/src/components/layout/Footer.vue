@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import {ref} from 'vue';
 
+const year = ref(new Date().getFullYear());
 </script>
 
 <template>
-  <footer class="border-t bg-white/80 dark:bg-neutral-800/80 backdrop-blur-sm flex items-center px-4 text-xs text-neutral-500">
+  <footer
+    class="bg-white dark:bg-neutral-800 flex justify-center text-xs text-neutral-500 w-full p-3">
     © {{ year }} DSL Hub
   </footer>
 </template>

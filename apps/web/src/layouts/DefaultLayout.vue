@@ -1,11 +1,6 @@
 <script setup lang="ts">
-
 </script>
 
 <template>
-AgentPage
+  <slot/>
 </template>
-
-<style scoped>
-
-</style>

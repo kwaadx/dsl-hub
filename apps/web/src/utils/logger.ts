@@ -40,3 +40,10 @@ declare global {
     lw: typeof lw;
   }
 }
+
+// Assign logger functions to window object if in browser environment
+if (typeof window !== 'undefined') {
+  window.le = le;
+  window.ll = ll;
+  window.lw = lw;
+}

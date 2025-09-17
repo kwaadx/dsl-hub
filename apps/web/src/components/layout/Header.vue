@@ -1,11 +1,19 @@
 <script setup lang="ts">
+import {useThemeStore} from "@/store/theme";
 
+const themeStore = useThemeStore();
 </script>
 
 <template>
-  <header class="h-14 flex items-center justify-between border-b px-4">
-    <div class="font-medium truncate">Chat</div>
-    <div class="text-xs text-neutral-500">You • Agent</div>
+  <header class="flex justify-between items-center p-3 bg-white/10 dark:bg-neutral-800/70">
+    <Select optionLabel="name" placeholder="Select a City"/>
+    <Button
+      class="h-8"
+      size="small"
+      :icon="themeStore.isDark ? 'pi pi-sun' : 'pi pi-moon'"
+      :severity="themeStore.isDark ? 'contrast' : 'secondary'"
+      @click="themeStore.toggleDark()"
+    ></Button>
   </header>
 </template>
 

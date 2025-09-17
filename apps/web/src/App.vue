@@ -1,36 +1,21 @@
-<template>
-  <Toast/>
-  <component :is="layout">
-    <router-view/>
-  </component>
-</template>
-
 <script setup lang="ts">
-import {computed, type Component, onMounted} from 'vue'
+import {computed} from 'vue'
 import {useRoute} from 'vue-router'
-import {useTheme} from '@primevue/themes'
-import {AuraPreset} from '@/theme/aura'
-import layoutDefault from '@/layouts/default.vue'
+
+import DefaultLayout from '@/layouts/DefaultLayout.vue'
+import MainLayout from '@/layouts/MainLayout.vue'
 
 const route = useRoute()
-const layout = computed<Component>(() => route.meta.layout ?? layoutDefault)
-
-useTheme({
-  preset: AuraPreset,
-  options: {
-    darkModeSelector: '.theme-dark',
-  },
-})
-
-onMounted(() => {
-  const saved = localStorage.getItem('theme:dark')
-  const prefersDark =
-    window.matchMedia &&
-    window.matchMedia('(prefers-color-scheme: dark)').matches
-
-  const dark = saved !== null ? saved === '1' : prefersDark
-  document.documentElement.classList.toggle('theme-dark', dark)
+const layouts = {default: DefaultLayout, main: MainLayout} as const
+const CurrentLayout = computed(() => {
+  const key = (route.meta.layout ?? 'default') as keyof typeof layouts
+  return layouts[key]
 })
 </script>
 
-<style scoped></style>
+<template>
+  <Toast/>
+  <component :is="CurrentLayout">
+    <router-view/>
+  </component>
+</template>

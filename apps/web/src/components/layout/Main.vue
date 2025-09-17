@@ -3,10 +3,8 @@
 </script>
 
 <template>
-  <main class="flex-1 overflow-y-auto">
-    <div class="p-4">
-      <slot />
-    </div>
+  <main class="flex p-3 h-full bg-white dark:bg-neutral-800">
+    <slot/>
   </main>
 </template>
 

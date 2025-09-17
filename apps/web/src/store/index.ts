@@ -1,17 +1,26 @@
-/**
- * Store configuration
- *
- * This file sets up Pinia as the store management solution for the application.
- * It replaces the previous Vuex implementation.
- */
+import {createPinia} from 'pinia'
+import {createPersistedState} from 'pinia-plugin-persistedstate'
 
-import { createPinia } from 'pinia'
-import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
+type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
-// Create the Pinia instance
+const storage: StorageLike =
+  typeof window !== 'undefined'
+    ? window.localStorage
+    : {
+      getItem: () => null,
+      setItem: () => {
+      },
+      removeItem: () => {
+      },
+    }
+
 const pinia = createPinia()
 
-// Add the persistedstate plugin to enable state persistence
-pinia.use(piniaPluginPersistedstate)
+pinia.use(
+  createPersistedState({
+    key: (id) => `dsl-hub-web-${id}`,
+    storage,
+  })
+)
 
 export default pinia

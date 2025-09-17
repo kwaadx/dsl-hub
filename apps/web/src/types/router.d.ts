@@ -1,7 +1,9 @@
-import type { Component } from 'vue'
+import 'vue-router'
+
+type LayoutKey = 'default' | 'main'
 
 declare module 'vue-router' {
   interface RouteMeta {
-    layout?: Component
+    layout?: LayoutKey
   }
 }
