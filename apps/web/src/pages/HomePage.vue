@@ -17,7 +17,7 @@ function startChat() {
   if (!text) return
   const id = genId()
 
-  router.push({ name: 'ChatPage', params: { id }, query: { q: text } })
+  router.push({ name: 'FlowPage', params: { id }, query: { q: text } })
 }
 </script>
 

@@ -3,7 +3,7 @@
 </script>
 
 <template>
-ChatPage
+FlowPage
 </template>
 
 <style scoped>

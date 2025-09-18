@@ -9,7 +9,6 @@ import Aura from '@primevue/themes/aura'
 
 import 'primeicons/primeicons.css'
 import '@/assets/css/tailwind.css'
-import '@/assets/css/screen.scss'
 
 import router from './router'
 import pinia from './store'

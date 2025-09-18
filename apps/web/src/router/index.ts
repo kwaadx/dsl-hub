@@ -8,9 +8,9 @@ const routes: RouteRecordRaw[] = [
     meta: {layout: 'main'},
   },
   {
-    path: '/chat/:id',
-    name: 'ChatPage',
-    component: () => import('@/pages/ChatPage.vue'),
+    path: '/flow/:id',
+    name: 'FlowPage',
+    component: () => import('@/pages/FlowPage.vue'),
     meta: {layout: 'main'},
     props: true,
   },
