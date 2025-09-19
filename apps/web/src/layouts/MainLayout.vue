@@ -10,8 +10,8 @@ const layoutStore = useLayoutStore();
 
 <template>
   <div class="h-screen w-full bg-neutral-50 dark:bg-neutral-900">
-    <div class="main-layout grid h-full transition-all duration-300"
-         :class="layoutStore.sidebarVisible ? 'grid-cols-[280px_1fr]' : 'grid-cols-[0px_1fr]'">
+    <div class="grid !grid-cols-1 h-full transition-all duration-300"
+         :class="layoutStore.sidebarVisible ? 'md:!grid-cols-[280px_1fr]' : 'md:!grid-cols-[0px_1fr]'">
       <Aside/>
       <div class="flex h-full flex-col">
         <Header/>
@@ -22,7 +22,7 @@ const layoutStore = useLayoutStore();
       </div>
     </div>
 
-    <div v-if="!layoutStore.sidebarVisible" class="fixed top-4 left-3 z-40">
+    <div v-if="!layoutStore.sidebarVisible" class="absolute top-4 left-3 z-40">
       <i class="!text-2xl cursor-pointer pi pi-bars" @click="layoutStore.toggleSidebar"/>
     </div>
 
@@ -35,9 +35,4 @@ const layoutStore = useLayoutStore();
 </template>
 
 <style scoped>
-@media (max-width: 768px) {
-  .main-layout {
-    grid-template-columns: 1fr !important;
-  }
-}
 </style>

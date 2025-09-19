@@ -8,9 +8,14 @@ const routes: RouteRecordRaw[] = [
     meta: {layout: 'main'},
   },
   {
-    path: '/flows/detail/:id',
-    name: 'FlowDetail',
-    component: () => import('@/views/FlowDetailView.vue'),
+    path: '/flows/:id',
+    name: 'FlowRoot',
+    redirect: to => ({ name: 'Flow', params: { id: to.params.id, mode: 'agent' } }),
+  },
+  {
+    path: '/flows/:id/:mode(agent)',
+    name: 'Flow',
+    component: () => import('@/views/FlowView.vue'),
     meta: {layout: 'main'},
     props: true,
   },

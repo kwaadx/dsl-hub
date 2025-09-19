@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import {useLayoutStore} from '@/store/layout';
-import HeaderAside from "@/components/layout/aside/HeaderAside.vue";
-import SearchAside from "@/components/layout/aside/SearchAside.vue";
-import NavAside from "@/components/layout/aside/NavAside.vue";
+import AsideHeader from "@/components/layout/aside/AsideHeader.vue";
+import AsideSearch from "@/components/layout/aside/AsideSearch.vue";
+import AsideNav from "@/components/layout/aside/AsideNav.vue";
 
 const layoutStore = useLayoutStore();
 const search = ref('')
@@ -19,8 +19,8 @@ const search = ref('')
     ]"
     aria-label="Sidebar navigation"
   >
-    <HeaderAside/>
-    <SearchAside v-model="search" />
-    <NavAside :search="search" />
+    <AsideHeader/>
+    <AsideSearch v-model="search" />
+    <AsideNav :search="search" />
   </aside>
 </template>

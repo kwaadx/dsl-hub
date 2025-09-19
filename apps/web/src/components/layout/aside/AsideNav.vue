@@ -8,7 +8,7 @@ const route = useRoute()
 const router = useRouter()
 const props = defineProps<{ search?: string }>()
 
-const {data, isLoading, isError, error, refetch} = useFlows()
+const {data, isLoading, isError, error} = useFlows()
 const flows = computed(() => data?.value ?? [])
 
 function escapeHtml(s: string) {
@@ -44,7 +44,7 @@ function menuItems(flow: { id: string; name: string }) {
   return [
     {
       label: 'Open', icon: 'pi pi-external-link',
-      command: () => router.push({name: 'FlowDetail', params: {id: flow.id}})
+      command: () => router.push({name: 'FlowRoot', params: {id: flow.id}})
     },
     {separator: true},
     {
@@ -90,7 +90,7 @@ function setOpen(flowId: string, value: boolean) {
 </script>
 
 <template>
-  <nav class="p-2 space-y-1">
+  <nav class="p-3 space-y-1">
     <div v-if="isLoading" class="flex items-center mt-5">
       <ProgressSpinner aria-label="Loading" class="!h-15 !w-15"/>
     </div>
@@ -114,7 +114,7 @@ function setOpen(flowId: string, value: boolean) {
         class="h-12 group flex items-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 select-none"
       >
         <RouterLink
-          :to="{ name: 'FlowDetail', params: { id: flow.id } }"
+          :to="{ name: 'FlowRoot', params: { id: flow.id } }"
           class="block w-full text-left px-3 py-2 truncate"
         >
           <span v-html="highlight(flow.name, props.search)"></span>

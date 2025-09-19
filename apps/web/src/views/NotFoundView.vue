@@ -1,12 +1,12 @@
-<!-- src/pages/NotFoundPage.vue -->
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
-import Button from 'primevue/button'
+import {useRouter} from 'vue-router'
+import {useThemeStore} from "@/store/theme";
 
 const router = useRouter()
+useThemeStore();
 
 function goHome() {
-  router.push({ name: 'Home' })
+  router.push({name: 'Home'})
 }
 </script>
 
