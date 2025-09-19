@@ -1,21 +1,19 @@
 <script setup lang="ts">
-import {computed} from 'vue'
-import {useRoute} from 'vue-router'
+import {ref, computed} from 'vue'
+import {useRoute, useRouter} from 'vue-router'
+import {onLongPress} from '@vueuse/core'
 import {useFlows} from '@/composables/data/flows/useFlows'
 
 const route = useRoute()
+const router = useRouter()
 const props = defineProps<{ search?: string }>()
 
 const {data, isLoading, isError, error} = useFlows()
 const flows = computed(() => data?.value ?? [])
 
 function escapeHtml(s: string) {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 }
 
 function escapeRegExp(s: string) {
@@ -23,20 +21,16 @@ function escapeRegExp(s: string) {
 }
 
 function highlight(text: string, query?: string) {
-  const q = (query ?? '').trim()
+  const q = (query ?? '').trim();
   if (!q) return escapeHtml(text)
-
   const re = new RegExp(escapeRegExp(q), 'ig')
-  let last = 0
-  let out = ''
-  let m: RegExpExecArray | null
-
+  let last = 0, out = '', m: RegExpExecArray | null
   while ((m = re.exec(text)) !== null) {
     out += escapeHtml(text.slice(last, m.index))
     out += `<mark class="px-0.5 rounded bg-yellow-200/70 dark:bg-yellow-500/40">${escapeHtml(m[0])}</mark>`
     last = re.lastIndex
   }
-  out += escapeHtml(text.slice(last))
+  out += escapeHtml(text.slice(last));
   return out
 }
 
@@ -45,6 +39,54 @@ const filtered = computed(() => {
   if (!q) return flows.value
   return flows.value.filter(f => f.name.toLowerCase().includes(q))
 })
+
+function menuItems(flow: { id: string; name: string }) {
+  return [
+    {
+      label: 'Open', icon: 'pi pi-external-link',
+      command: () => router.push({name: 'FlowDetail', params: {id: flow.id}})
+    },
+    {separator: true},
+    {
+      label: 'Rename', icon: 'pi pi-pencil',
+      command: () => console.log('Rename', flow)
+    },
+    {
+      label: 'Delete', icon: 'pi pi-trash',
+      command: () => console.log('Delete', flow)
+    },
+  ]
+}
+
+type TieredMenuInst = ComponentPublicInstance & TieredMenuMethods
+
+const menuRefs = ref<Record<string, TieredMenuInst | null>>({})
+
+function setMenuRef(id: string, el: Element | ComponentPublicInstance | null) {
+  const inst = el as unknown as TieredMenuInst | null
+  if (inst) menuRefs.value[id] = inst
+  else delete menuRefs.value[id]
+}
+
+function openMenu(evt: Event, flow: { id: string; name: string }) {
+  const inst = menuRefs.value[flow.id]
+  inst?.toggle(evt)
+}
+
+function onRowLongPress(flow: { id: string; name: string }) {
+  const rowEl = ref<HTMLElement | null>(null)
+  onLongPress(rowEl, (e) => openMenu(e as Event, flow), {
+    delay: 500,
+    modifiers: {stop: true, prevent: true},
+  })
+  return rowEl
+}
+
+const menuOpenStates = ref<Record<string, boolean>>({})
+
+function setOpen(flowId: string, value: boolean) {
+  menuOpenStates.value[flowId] = value
+}
 </script>
 
 <template>
@@ -55,17 +97,21 @@ const filtered = computed(() => {
     <div v-else-if="isError" class="p-3 text-center text-red-500">
       {{ (error as Error).message }}
     </div>
+
     <template v-else>
       <div v-if="!filtered.length" class="p-3 text-center text-gray-500">
         {{ props.search ? 'Nothing found' : 'No flows yet' }}
       </div>
-      <IconField
+
+      <div
         v-for="flow in filtered"
         :key="flow.id"
-        class="group flex items-center rounded-md hover:bg-black/5 dark:hover:bg-white/10"
+        :ref="onRowLongPress(flow)"
         :class="{
-          'bg-black/5 dark:bg-white/10 font-medium': route.params.id === flow.id
+          'bg-black/5 dark:bg-white/10 font-medium': route.params.id === flow.id,
+          'bg-black/5 dark:bg-white/10': menuOpenStates[flow.id]
         }"
+        class="h-12 group flex items-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 select-none"
       >
         <RouterLink
           :to="{ name: 'FlowDetail', params: { id: flow.id } }"
@@ -73,10 +119,25 @@ const filtered = computed(() => {
         >
           <span v-html="highlight(flow.name, props.search)"></span>
         </RouterLink>
-        <InputIcon
-          class="pi pi-ellipsis-v ml-2 !hidden group-hover:!inline-flex cursor-pointer text-gray-500"
+        <Button
+          :class="{
+            '!hidden': !menuOpenStates[flow.id]
+          }"
+          class="ml-2 p-1 rounded group-hover:!flex items-center justify-center cursor-pointer"
+          icon="pi pi-ellipsis-v"
+          link
+
+          @click.stop="openMenu($event, flow)"
+        ></Button>
+        <TieredMenu
+          :ref="(el) => setMenuRef(flow.id, el)"
+          :model="menuItems(flow)"
+          popup
+          appendTo="self"
+          @show="setOpen(flow.id, true)"
+          @hide="setOpen(flow.id, false)"
         />
-      </IconField>
+      </div>
     </template>
   </nav>
 </template>

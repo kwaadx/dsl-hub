@@ -1,4 +1,5 @@
-import { createApp } from 'vue'
+import {createApp} from 'vue'
+import {VueQueryPlugin, QueryClient} from '@tanstack/vue-query'
 import PrimeVue from 'primevue/config'
 import ConfirmationService from 'primevue/confirmationservice'
 import DialogService from 'primevue/dialogservice'
@@ -28,6 +29,16 @@ if (import.meta.env.DEV) {
   app.config.performance = true
 }
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 3,
+      refetchOnWindowFocus: true,
+      staleTime: 60_000,
+    },
+  },
+})
+app.use(VueQueryPlugin, {queryClient})
 app.use(PrimeVue, {
   ripple: true,
 })

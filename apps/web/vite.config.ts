@@ -9,7 +9,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default ({ mode }: { mode: string }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const PORT = Number(env.WEB_PORT || 5173)
-  const PUBLIC_HOST = env.PUBLIC_DEV_HOST || 'localhost'
+  const PUBLIC_HOST = env.VITE_PUBLIC_HOST || 'localhost'
   const USE_WSS = env.VITE_HMR_USE_WSS === 'true'
 
   return defineConfig({
@@ -20,7 +20,7 @@ export default ({ mode }: { mode: string }) => {
         ? { protocol: 'wss', host: PUBLIC_HOST, clientPort: 443 }
         : { protocol: 'ws', host: PUBLIC_HOST, port: PORT },
       allowedHosts: [PUBLIC_HOST],
-      watch: { usePolling: !!env.WATCH_POLL, interval: 1000 }
+      watch: { usePolling: !!env.VITE_WATCH_POLL, interval: 1000 }
     },
     plugins: [
       tailwindcss(),

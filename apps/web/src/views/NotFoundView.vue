@@ -6,7 +6,7 @@ import Button from 'primevue/button'
 const router = useRouter()
 
 function goHome() {
-  router.push({ name: 'HomePage' })
+  router.push({ name: 'Home' })
 }
 </script>
 

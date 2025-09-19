@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useThemeStore } from "@/store/theme";
-import { useLayoutStore } from "@/store/layout";
+import {ref} from 'vue';
+import {useThemeStore} from "@/store/theme";
+import {useLayoutStore} from "@/store/layout";
 
 const themeStore = useThemeStore();
 const layoutStore = useLayoutStore();
 
 const cities = ref([
-  { name: 'New York', code: 'NY' },
-  { name: 'London', code: 'LDN' },
-  { name: 'Paris', code: 'PRS' },
-  { name: 'Tokyo', code: 'TKY' }
+  {name: 'New York', code: 'NY'},
+  {name: 'London', code: 'LDN'},
+  {name: 'Paris', code: 'PRS'},
+  {name: 'Tokyo', code: 'TKY'}
 ]);
 const selectedCity = ref(null);
 </script>
