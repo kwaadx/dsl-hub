@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script lang="ts" setup>
 import Card from 'primevue/card'
 import Tag from 'primevue/tag'
 
@@ -20,7 +20,7 @@ const emit = defineEmits<{
 <template>
   <Card class="overflow-hidden">
     <template #header>
-      <img v-if="card.image" :src="card.image" class="h-40 w-full object-cover" alt="preview" />
+      <img v-if="card.image" :src="card.image" alt="preview" class="h-40 w-full object-cover"/>
     </template>
     <template #title>
       <div class="text-base font-semibold">{{ card.title }}</div>
@@ -28,7 +28,7 @@ const emit = defineEmits<{
     <template #content>
       <p v-if="card.description" class="text-sm opacity-80">{{ card.description }}</p>
       <div v-if="card.meta?.length" class="mt-2 flex flex-wrap gap-2">
-        <Tag v-for="m in card.meta" :key="m.label" :value="`${m.label}: ${m.value}`" />
+        <Tag v-for="m in card.meta" :key="m.label" :value="`${m.label}: ${m.value}`"/>
       </div>
     </template>
     <template #footer>

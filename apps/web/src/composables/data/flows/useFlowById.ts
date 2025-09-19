@@ -1,7 +1,7 @@
-import { computed, unref, type MaybeRef } from 'vue';
-import { useQuery } from '@tanstack/vue-query';
-import { fetchFlowByIdApi, type Flow } from '@/services/flow';
-import { qk } from '../queryKeys';
+import {computed, type MaybeRef, unref} from 'vue';
+import {useQuery} from '@tanstack/vue-query';
+import {fetchFlowByIdApi, type Flow} from '@/services/flow';
+import {qk} from '../queryKeys';
 
 export function useFlowById(id: MaybeRef<string | null | undefined>) {
   const enabled = computed(() => {
@@ -11,7 +11,7 @@ export function useFlowById(id: MaybeRef<string | null | undefined>) {
 
   return useQuery<Flow>({
     queryKey: computed(() => qk.flows.detail(String(unref(id) ?? ''))),
-    queryFn: ({ signal }) => fetchFlowByIdApi(String(unref(id)), signal),
+    queryFn: ({signal}) => fetchFlowByIdApi(String(unref(id)), signal),
     enabled,
     staleTime: 60_000,
   });

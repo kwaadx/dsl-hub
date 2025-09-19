@@ -1,5 +1,5 @@
-<script setup lang="ts">
-import { ref } from 'vue'
+<script lang="ts" setup>
+import {ref} from 'vue'
 
 import RadioButton from 'primevue/radiobutton'
 import Button from 'primevue/button'
@@ -9,15 +9,16 @@ const props = withDefaults(defineProps<{
   options: Array<{ label: string; value: string }>
   kind?: 'dropdown' | 'radio'
   name?: string
-}>(), { kind: 'dropdown' })
+}>(), {kind: 'dropdown'})
 
 const emit = defineEmits<{
   (e: 'submit', payload: { value: string }): void
 }>()
 
 const value = ref<string | null>(null)
+
 function submit() {
-  if (value.value) emit('submit', { value: value.value })
+  if (value.value) emit('submit', {value: value.value})
 }
 </script>
 
@@ -26,8 +27,9 @@ function submit() {
     <div class="mb-2 text-sm font-medium opacity-80">{{ label }}</div>
 
     <div v-if="kind === 'dropdown'" class="flex items-center gap-2">
-      <Select v-model="value" :options="options" optionLabel="label" optionValue="value" class="min-w-56" />
-      <Button label="OK" size="small" @click="submit" :disabled="!value" />
+      <Select v-model="value" :options="options" class="min-w-56" optionLabel="label"
+              optionValue="value"/>
+      <Button :disabled="!value" label="OK" size="small" @click="submit"/>
     </div>
 
     <div v-else class="flex flex-col gap-2">
@@ -36,11 +38,12 @@ function submit() {
         :key="opt.value"
         class="flex cursor-pointer items-center gap-2"
       >
-        <RadioButton :inputId="`${name}-${opt.value}`" name="choice" :value="opt.value" v-model="value" />
+        <RadioButton v-model="value" :inputId="`${name}-${opt.value}`" :value="opt.value"
+                     name="choice"/>
         <span>{{ opt.label }}</span>
       </label>
       <div class="pt-1">
-        <Button label="Confirm" size="small" @click="submit" :disabled="!value" />
+        <Button :disabled="!value" label="Confirm" size="small" @click="submit"/>
       </div>
     </div>
   </div>

@@ -12,7 +12,10 @@ export type EntityKeys<E extends string> = {
     pageSize?: number,
     params?: Record<string, KeyAtom>,
     ...scope: KeyScope
-  ) => readonly [E, ...KeyScope, 'paged', Readonly<{ page: number; pageSize: number | undefined } & Record<string, KeyAtom>>];
+  ) => readonly [E, ...KeyScope, 'paged', Readonly<{
+    page: number;
+    pageSize: number | undefined
+  } & Record<string, KeyAtom>>];
 };
 
 export function makeEntityKeys<E extends string>(entity: E): EntityKeys<E> {
@@ -21,7 +24,7 @@ export function makeEntityKeys<E extends string>(entity: E): EntityKeys<E> {
     list: (...scope) => [entity, ...scope, 'list'] as const,
     detail: (id, ...scope) => [entity, ...scope, 'detail', id] as const,
     paged: (page, pageSize, params = {}, ...scope) =>
-      [entity, ...scope, 'paged', { page, pageSize, ...params }] as const,
+      [entity, ...scope, 'paged', {page, pageSize, ...params}] as const,
   };
 }
 

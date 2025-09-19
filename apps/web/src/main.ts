@@ -8,7 +8,7 @@ import ConfirmationService from 'primevue/confirmationservice'
 import DialogService from 'primevue/dialogservice'
 import ToastService from 'primevue/toastservice'
 
-import {useTheme, definePreset} from '@primevue/themes'
+import {definePreset, useTheme} from '@primevue/themes'
 import Aura from '@primevue/themes/aura'
 
 import 'primeicons/primeicons.css'

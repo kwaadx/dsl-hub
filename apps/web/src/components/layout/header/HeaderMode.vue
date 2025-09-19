@@ -1,5 +1,5 @@
-<script setup lang="ts">
-import {ref, watch, computed} from 'vue'
+<script lang="ts" setup>
+import {computed, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {useLayoutStore} from "@/store/layout";
 
@@ -64,14 +64,14 @@ const selectPt = {
   <Select
     v-if="hasValidContext"
     v-model="model"
-    :options="options"
-    optionLabel="name"
-    optionValue="code"
-    :placeholder="placeholder"
     :class="[
       layoutStore.sidebarVisible ? 'md:ml-0' : '',
       '!transition-all z-10 ml-10 h-10'
     ]"
+    :options="options"
+    :placeholder="placeholder"
     :pt="selectPt"
+    optionLabel="name"
+    optionValue="code"
   />
 </template>

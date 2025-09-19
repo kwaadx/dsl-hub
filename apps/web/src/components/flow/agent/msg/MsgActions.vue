@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
+
 const props = defineProps<{
   actions: Array<{
     id: string
@@ -18,11 +19,11 @@ const emit = defineEmits<{
 function styleOf(kind?: string) {
   switch (kind) {
     case 'danger':
-      return { severity: 'danger' as const }
+      return {severity: 'danger' as const}
     case 'secondary':
-      return { severity: 'secondary' as const, outlined: true }
+      return {severity: 'secondary' as const, outlined: true}
     default:
-      return { severity: 'primary' as const }
+      return {severity: 'primary' as const}
   }
 }
 </script>

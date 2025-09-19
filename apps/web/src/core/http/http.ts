@@ -1,4 +1,4 @@
-import { HttpMethod, RequestOptions } from './types';
+import {HttpMethod, RequestOptions} from './types';
 
 const BASE_URL =
   (import.meta as any).env?.VITE_API_BASE_URL ||

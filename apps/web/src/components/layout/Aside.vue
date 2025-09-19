@@ -1,5 +1,5 @@
-<script setup lang="ts">
-import { ref } from 'vue'
+<script lang="ts" setup>
+import {ref} from 'vue'
 import {useLayoutStore} from '@/store/layout';
 import AsideHeader from "@/components/layout/aside/AsideHeader.vue";
 import AsideSearch from "@/components/layout/aside/AsideSearch.vue";
@@ -20,7 +20,7 @@ const search = ref('')
     aria-label="Sidebar navigation"
   >
     <AsideHeader/>
-    <AsideSearch v-model="search" />
-    <AsideNav :search="search" />
+    <AsideSearch v-model="search"/>
+    <AsideNav :search="search"/>
   </aside>
 </template>

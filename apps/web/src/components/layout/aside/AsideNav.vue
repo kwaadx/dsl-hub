@@ -1,5 +1,5 @@
-<script setup lang="ts">
-import {ref, computed} from 'vue'
+<script lang="ts" setup>
+import {computed, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {onLongPress} from '@vueuse/core'
 import {useFlows} from '@/composables/data/flows/useFlows'
@@ -132,10 +132,10 @@ function setOpen(flowId: string, value: boolean) {
         <TieredMenu
           :ref="(el) => setMenuRef(flow.id, el)"
           :model="menuItems(flow)"
-          popup
           appendTo="self"
-          @show="setOpen(flow.id, true)"
+          popup
           @hide="setOpen(flow.id, false)"
+          @show="setOpen(flow.id, true)"
         />
       </div>
     </template>

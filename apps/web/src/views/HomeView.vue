@@ -7,5 +7,3 @@
     <Textarea class="!p-3 max-w-3xl w-full" rows="1" placeholder="Put your prompt..." auto-resize/>
   </section>
 </template>
-
-<style scoped></style>

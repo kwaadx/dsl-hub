@@ -1,5 +1,5 @@
-import { ref } from 'vue'
-import type { AgentEvent, ChatMessage, UserMessage } from '@/components/flow/agent/types'
+import {ref} from 'vue'
+import type {AgentEvent, ChatMessage, UserMessage} from '@/components/flow/agent/types'
 
 export function useAgentFlow(opts: {
   onAppend: (m: ChatMessage) => void
@@ -23,7 +23,7 @@ export function useAgentFlow(opts: {
         id: crypto.randomUUID(),
         role: 'agent',
         type: 'notice',
-        content: { severity: 'success', text: `Action "${msg.actionId}" accepted` },
+        content: {severity: 'success', text: `Action "${msg.actionId}" accepted`},
         ts: Date.now(),
       })
       isBusy.value = false
@@ -36,7 +36,7 @@ export function useAgentFlow(opts: {
         id: crypto.randomUUID(),
         role: 'agent',
         type: 'text',
-        content: { text: `You selected: ${msg.payload.value}` },
+        content: {text: `You selected: ${msg.payload.value}`},
         ts: Date.now(),
       })
       isBusy.value = false
@@ -49,7 +49,7 @@ export function useAgentFlow(opts: {
         id: crypto.randomUUID(),
         role: 'agent',
         type: 'text',
-        content: { text: 'Привіт! Я можу зробити кілька дій для твого flow.' },
+        content: {text: 'Привіт! Я можу зробити кілька дій для твого flow.'},
         ts: Date.now(),
       },
       {
@@ -58,9 +58,9 @@ export function useAgentFlow(opts: {
         type: 'actions',
         content: {
           actions: [
-            { id: 'run-validation', label: 'Run validation', icon: 'pi pi-check' },
-            { id: 'show-preview', label: 'Show preview', icon: 'pi pi-eye', kind: 'secondary' },
-            { id: 'delete-flow', label: 'Delete', icon: 'pi pi-trash', kind: 'danger' },
+            {id: 'run-validation', label: 'Run validation', icon: 'pi pi-check'},
+            {id: 'show-preview', label: 'Show preview', icon: 'pi pi-eye', kind: 'secondary'},
+            {id: 'delete-flow', label: 'Delete', icon: 'pi pi-trash', kind: 'danger'},
           ],
         },
         ts: Date.now(),
@@ -73,9 +73,9 @@ export function useAgentFlow(opts: {
           label: 'Оберіть середовище деплоя',
           kind: 'dropdown',
           options: [
-            { label: 'Development', value: 'dev' },
-            { label: 'Staging', value: 'stg' },
-            { label: 'Production', value: 'prod' },
+            {label: 'Development', value: 'dev'},
+            {label: 'Staging', value: 'stg'},
+            {label: 'Production', value: 'prod'},
           ],
         },
         ts: Date.now(),
@@ -90,8 +90,8 @@ export function useAgentFlow(opts: {
           image: 'https://picsum.photos/800/300',
           url: 'https://example.com/flow/123',
           meta: [
-            { label: 'Version', value: 'v2.3.1' },
-            { label: 'Status', value: 'OK' },
+            {label: 'Version', value: 'v2.3.1'},
+            {label: 'Status', value: 'OK'},
           ],
         },
         ts: Date.now(),
@@ -129,19 +129,19 @@ export function useAgentFlow(opts: {
       id: crypto.randomUUID(),
       role: 'agent',
       type: 'text',
-      content: { text: 'Привіт 👋 Я агент цього flow. Постав запитання або надішли інструкцію.' },
+      content: {text: 'Привіт 👋 Я агент цього flow. Постав запитання або надішли інструкцію.'},
       ts: Date.now(),
     })
     append({
       id: crypto.randomUUID(),
       role: 'agent',
       type: 'notice',
-      content: { severity: 'info', text: 'Проєкт знайдено. Статус: healthy' },
+      content: {severity: 'info', text: 'Проєкт знайдено. Статус: healthy'},
       ts: Date.now(),
     })
   }
 
-  return { isBusy, sendToAgent, mockBoot }
+  return {isBusy, sendToAgent, mockBoot}
 }
 
 function sleep(ms: number) {

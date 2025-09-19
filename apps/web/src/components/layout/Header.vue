@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script lang="ts" setup>
 import HeaderMode from "@/components/layout/header/HeaderMode.vue";
 import HeaderTheme from "@/components/layout/header/HeaderTheme.vue";
 </script>

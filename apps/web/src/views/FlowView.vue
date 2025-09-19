@@ -10,7 +10,7 @@ const {data: flow, isLoading, isError, error} = useFlowById(id)
 </script>
 
 <template>
-  <section class="w-full">
+  <section class="w-full flex-1 min-h-0 flex flex-col">
     <div v-if="isLoading" class="animate-pulse space-y-2">
       <div class="h-6 w-48 bg-black/10 dark:bg-white/10 rounded"></div>
       <div class="h-4 w-80 bg-black/10 dark:bg-white/10 rounded"></div>
@@ -20,13 +20,16 @@ const {data: flow, isLoading, isError, error} = useFlowById(id)
       {{ (error as Error).message || 'Failed to load flow' }}
     </div>
 
-    <div v-else class="h-full space-y-3">
-      <header class="flex items-center justify-between gap-2">
+    <div v-else class="flex flex-1 min-h-0 flex-col gap-3 items-stretch">
+      <header class="shrink-0 flex items-center justify-between gap-2">
         <h1 class="text-xl font-semibold truncate">
           {{ flow?.name }}
         </h1>
       </header>
-      <AgentFlow :flowId="id ?? 'demo'"/>
+
+      <div class="flex-1 min-h-0 overflow-hidden">
+        <AgentFlow :flowId="id ?? 'demo'"/>
+      </div>
     </div>
   </section>
 </template>

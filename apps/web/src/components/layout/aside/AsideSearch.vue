@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script lang="ts" setup>
 import {computed} from 'vue'
 
 const props = defineProps<{ modelValue: string }>()
@@ -11,13 +11,13 @@ const model = computed({
 
 <template>
   <div class="px-3 mb-2">
-    <IconField iconPosition="right" class="w-full">
+    <IconField class="w-full" iconPosition="right">
       <InputText v-model="model" class="w-full pr-9" placeholder="Search..."/>
       <InputIcon
         v-if="model"
+        aria-label="Clear"
         class="pi pi-times cursor-pointer"
         @click="model = ''"
-        aria-label="Clear"
       />
     </IconField>
   </div>

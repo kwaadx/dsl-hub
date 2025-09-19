@@ -1,5 +1,5 @@
-import { useI18n as useVueI18n } from 'vue-i18n'
-import { computed } from 'vue'
+import {useI18n as useVueI18n} from 'vue-i18n'
+import {computed} from 'vue'
 
 /**
  * Enhanced useI18n composable that provides additional utilities

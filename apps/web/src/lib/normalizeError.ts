@@ -1,4 +1,4 @@
-import { isHttpError } from '@/core/http/http';
+import {isHttpError} from '@/core/http/http';
 
 export type NormalizedError = {
   message: string;
@@ -25,5 +25,5 @@ export function normalizeError(err: unknown): NormalizedError {
       details: anyErr?.payload ?? anyErr?.data,
     };
   }
-  return { message: 'Unknown error' };
+  return {message: 'Unknown error'};
 }

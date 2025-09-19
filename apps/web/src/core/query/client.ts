@@ -1,6 +1,6 @@
-import { QueryClient, QueryCache, MutationCache } from '@tanstack/vue-query';
-import { normalizeError } from '@/lib/normalizeError';
-import { toastError } from '@/lib/toast';
+import {MutationCache, QueryCache, QueryClient} from '@tanstack/vue-query';
+import {normalizeError} from '@/lib/normalizeError';
+import {toastError} from '@/lib/toast';
 
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({

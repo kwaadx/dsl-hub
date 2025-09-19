@@ -1,6 +1,6 @@
-<script setup lang="ts">
-import { computed } from 'vue'
-import type { ChatMessage, AgentEvent } from './types'
+<script lang="ts" setup>
+import {computed} from 'vue'
+import type {AgentEvent, ChatMessage} from './types'
 import MsgText from '@/components/flow/agent/msg/MsgText.vue'
 import MsgActions from '@/components/flow/agent/msg/MsgActions.vue'
 import MsgChoice from '@/components/flow/agent/msg/MsgChoice.vue'
@@ -26,35 +26,36 @@ const bubbleByRole = computed(() =>
 </script>
 
 <template>
-  <div class="flex" :class="side === 'end' ? 'justify-end' : 'justify-start'">
+  <div :class="side === 'end' ? 'justify-end' : 'justify-start'" class="flex">
     <div v-if="msg.type === 'text'" :class="[bubbleBase, bubbleByRole]">
-      <MsgText :text="msg.content.text" />
+      <MsgText :text="msg.content.text"/>
     </div>
 
     <div v-else-if="msg.type === 'actions'" class="w-full max-w-[80%]">
-      <MsgActions :actions="msg.content.actions" @act="(a) => emit('act', a)" />
+      <MsgActions :actions="msg.content.actions" @act="(a) => emit('act', a)"/>
     </div>
 
     <div v-else-if="msg.type === 'choice'" class="w-full max-w-[80%]">
       <MsgChoice
-        :label="msg.content.label"
-        :options="msg.content.options"
         :kind="msg.content.kind"
+        :label="msg.content.label"
         :name="msg.id"
+        :options="msg.content.options"
         @submit="(payload) => emit('act', { kind: 'choice.submit', msgId: msg.id, payload })"
       />
     </div>
 
     <div v-else-if="msg.type === 'card'" class="w-full max-w-[80%]">
-      <MsgCard :card="msg.content" @open="(url)=>emit('act', {kind:'card.open', url, msgId: msg.id})" />
+      <MsgCard :card="msg.content"
+               @open="(url)=>emit('act', {kind:'card.open', url, msgId: msg.id})"/>
     </div>
 
     <div v-else-if="msg.type === 'notice'" :class="[bubbleBase, bubbleByRole]">
-      <MsgNotice :severity="msg.content.severity" :text="msg.content.text" />
+      <MsgNotice :severity="msg.content.severity" :text="msg.content.text"/>
     </div>
 
     <div v-else-if="msg.type === 'code'" class="w-full max-w-[80%]">
-      <MsgCode :language="msg.content.language" :code="msg.content.code" />
+      <MsgCode :code="msg.content.code" :language="msg.content.language"/>
     </div>
 
     <div v-else class="max-w-[80%] rounded-md border border-dashed p-2 text-xs opacity-70">

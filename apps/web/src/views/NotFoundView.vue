@@ -18,16 +18,10 @@ function goHome() {
              dark:border-gray-700/60 dark:bg-gray-900/70"
     >
       <div class="p-8">
-        <h1
-          class="text-6xl font-extrabold tracking-tight text-gray-900
-                 dark:text-gray-100"
-        >
+        <h1 class="text-6xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
           404
         </h1>
-        <p
-          class="mt-3 text-lg text-gray-600
-                 dark:text-gray-400"
-        >
+        <p class="mt-3 text-lg text-gray-600 dark:text-gray-400">
           The page you’re looking for doesn’t exist or was moved.
         </p>
 
@@ -43,5 +37,3 @@ function goHome() {
     </div>
   </section>
 </template>
-
-<style scoped></style>

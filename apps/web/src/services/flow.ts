@@ -32,7 +32,7 @@ function delay(ms: number, signal?: AbortSignal) {
         reject(err);
       };
       if (signal.aborted) return onAbort();
-      signal.addEventListener('abort', onAbort, { once: true });
+      signal.addEventListener('abort', onAbort, {once: true});
     }
   });
 }
@@ -77,6 +77,7 @@ function canUseLS(): boolean {
     return false;
   }
 }
+
 function loadFromLS(): Flow[] | null {
   if (!canUseLS()) return null;
   const raw = localStorage.getItem(LS_KEY);
@@ -89,6 +90,7 @@ function loadFromLS(): Flow[] | null {
     return null;
   }
 }
+
 function saveToLS(data: Flow[]) {
   if (!canUseLS()) return;
   try {
@@ -110,8 +112,9 @@ export function __resetFakeFlows() {
   DB = DEFAULT_FLOWS.slice();
   saveToLS(DB);
 }
+
 export function __getFakeFlows(): Flow[] {
-  return DB.map((f) => ({ ...f }));
+  return DB.map((f) => ({...f}));
 }
 
 /** Fetch all flows. */
@@ -119,7 +122,7 @@ export async function fetchFlowsApi(signal?: AbortSignal): Promise<Flow[]> {
   await delay(300 + Math.floor(Math.random() * 300), signal);
 
   // throw new Error('Test error in fetchFlowsApi');
-  return DB.map((f) => ({ ...f }));
+  return DB.map((f) => ({...f}));
 }
 
 /** Fetch single flow by id. */
@@ -131,16 +134,18 @@ export async function fetchFlowByIdApi(id: string, signal?: AbortSignal): Promis
     err.status = 404;
     throw err;
   }
-  return { ...found };
+  return {...found};
 }
 
 /** Create flow (persist to LS). */
-export async function createFlowApi(payload: { name: string }, signal?: AbortSignal): Promise<Flow> {
+export async function createFlowApi(payload: {
+  name: string
+}, signal?: AbortSignal): Promise<Flow> {
   await delay(200 + Math.floor(Math.random() * 300), signal);
-  const item: Flow = { id: uuid(), name: payload.name };
+  const item: Flow = {id: uuid(), name: payload.name};
   DB.unshift(item);
   saveToLS(DB);
-  return { ...item };
+  return {...item};
 }
 
 /** Update flow (persist to LS). */
@@ -152,9 +157,9 @@ export async function updateFlowApi(id: string, patch: Partial<Flow>, signal?: A
     err.status = 404;
     throw err;
   }
-  DB[idx] = { ...DB[idx], ...patch };
+  DB[idx] = {...DB[idx], ...patch};
   saveToLS(DB);
-  return { ...DB[idx] };
+  return {...DB[idx]};
 }
 
 /** Delete flow (persist to LS). */
@@ -172,17 +177,17 @@ export async function fetchFlowsPagedApi(
   params: { page: number; pageSize?: number; q?: string },
   signal?: AbortSignal
 ): Promise<Paged<Flow>> {
-  const { page, pageSize = 5, q = '' } = params;
+  const {page, pageSize = 5, q = ''} = params;
   await delay(250 + Math.floor(Math.random() * 250), signal);
 
   const needle = q.trim().toLowerCase();
   const filtered = needle ? DB.filter((f) => f.name.toLowerCase().includes(needle)) : DB;
 
   const start = Math.max(0, (page - 1) * pageSize);
-  const items = filtered.slice(start, start + pageSize).map((f) => ({ ...f }));
+  const items = filtered.slice(start, start + pageSize).map((f) => ({...f}));
 
   const totalItems = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
-  return { items, page, pageSize, totalItems, totalPages };
+  return {items, page, pageSize, totalItems, totalPages};
 }

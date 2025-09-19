@@ -10,7 +10,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/flows/:id',
     name: 'FlowRoot',
-    redirect: to => ({ name: 'Flow', params: { id: to.params.id, mode: 'agent' } }),
+    redirect: to => ({name: 'Flow', params: {id: to.params.id, mode: 'agent'}}),
   },
   {
     path: '/flows/:id/:mode(agent)',

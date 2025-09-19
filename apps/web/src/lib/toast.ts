@@ -12,17 +12,17 @@ export function registerToast(show: (p: ToastPayload) => void) {
 }
 
 export function toastError(detail: string, summary = 'Error') {
-  showFn?.({ severity: 'error', summary, detail, life: 6000 });
+  showFn?.({severity: 'error', summary, detail, life: 6000});
 }
 
 export function toastSuccess(detail: string, summary = 'Success') {
-  showFn?.({ severity: 'success', summary, detail, life: 4000 });
+  showFn?.({severity: 'success', summary, detail, life: 4000});
 }
 
 export function toastInfo(detail: string, summary = 'Info') {
-  showFn?.({ severity: 'info', summary, detail, life: 4000 });
+  showFn?.({severity: 'info', summary, detail, life: 4000});
 }
 
 export function toastWarn(detail: string, summary = 'Warning') {
-  showFn?.({ severity: 'warn', summary, detail, life: 4000 });
+  showFn?.({severity: 'warn', summary, detail, life: 4000});
 }
