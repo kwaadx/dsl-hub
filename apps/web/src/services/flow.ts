@@ -1,5 +1,3 @@
-// services/flow.ts
-
 export interface Flow {
   id: string;
   name: string;
@@ -119,6 +117,8 @@ export function __getFakeFlows(): Flow[] {
 /** Fetch all flows. */
 export async function fetchFlowsApi(signal?: AbortSignal): Promise<Flow[]> {
   await delay(300 + Math.floor(Math.random() * 300), signal);
+
+  // throw new Error('Test error in fetchFlowsApi');
   return DB.map((f) => ({ ...f }));
 }
 

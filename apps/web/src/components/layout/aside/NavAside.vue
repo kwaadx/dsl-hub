@@ -8,7 +8,7 @@ const route = useRoute()
 const router = useRouter()
 const props = defineProps<{ search?: string }>()
 
-const {data, isLoading, isError, error} = useFlows()
+const {data, isLoading, isError, error, refetch} = useFlows()
 const flows = computed(() => data?.value ?? [])
 
 function escapeHtml(s: string) {

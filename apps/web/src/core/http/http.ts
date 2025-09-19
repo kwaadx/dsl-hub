@@ -1,14 +1,4 @@
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-
-export interface RequestOptions<TBody = unknown> {
-  method?: HttpMethod;
-  path: string;
-  body?: TBody;
-  query?: Record<string, any>;
-  headers?: Record<string, string>;
-  signal?: AbortSignal | null;
-  auth?: boolean;
-}
+import { HttpMethod, RequestOptions } from './types';
 
 const BASE_URL =
   (import.meta as any).env?.VITE_API_BASE_URL ||
@@ -35,7 +25,38 @@ function getAuthTokenSafely(): string | null {
   }
 }
 
-export async function http<TResp = unknown, TBody = unknown>(opts: RequestOptions<TBody>): Promise<TResp> {
+export class HttpError extends Error {
+  status: number;
+  payload: any;
+  url: string;
+  method: HttpMethod;
+  code?: string | number;
+
+  constructor(params: {
+    message: string;
+    status: number;
+    payload: any;
+    url: string;
+    method: HttpMethod;
+    code?: string | number;
+  }) {
+    super(params.message);
+    this.name = 'HttpError';
+    this.status = params.status;
+    this.payload = params.payload;
+    this.url = params.url;
+    this.method = params.method;
+    this.code = params.code;
+  }
+}
+
+export function isHttpError(e: unknown): e is HttpError {
+  return e instanceof Error && (e as any).name === 'HttpError';
+}
+
+export async function http<TResp = unknown, TBody = unknown>(
+  opts: RequestOptions<TBody>
+): Promise<TResp> {
   const {
     method = 'GET',
     path,
@@ -74,20 +95,31 @@ export async function http<TResp = unknown, TBody = unknown>(opts: RequestOption
 
   let data: any = null;
   const ct = res.headers.get('content-type') || '';
-  if (ct.includes('application/json')) {
-    data = await res.json();
-  } else {
-    data = await res.text();
+  try {
+    if (ct.includes('application/json')) {
+      data = await res.json();
+    } else {
+      const txt = await res.text();
+      data = txt || null;
+    }
+  } catch {
+    data = null;
   }
 
   if (!res.ok) {
     const message =
       (data && (data.message || data.error || data.detail)) ||
       `HTTP ${res.status} ${res.statusText}`;
-    const err = new Error(message) as Error & { status?: number; payload?: any };
-    err.status = res.status;
-    err.payload = data;
-    throw err;
+    const code = data?.code ?? data?.errorCode;
+
+    throw new HttpError({
+      message,
+      status: res.status,
+      payload: data,
+      url,
+      method,
+      code,
+    });
   }
 
   return data as TResp;
