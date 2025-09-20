@@ -3,8 +3,10 @@ import {computed} from 'vue'
 import {useFlowById} from '@/composables/data/flows/useFlowById'
 import AgentFlow from "@/components/flow/AgentFlow.vue";
 
-const props = defineProps<{ id: string }>()
+const props = defineProps<{ id: string; mode?: string }>()
+
 const id = computed(() => String(props.id ?? ''))
+const mode = computed(() => props.mode ?? 'agent')
 
 const {data: flow, isLoading, isError, error} = useFlowById(id)
 </script>
@@ -27,7 +29,7 @@ const {data: flow, isLoading, isError, error} = useFlowById(id)
         </h1>
       </header>
 
-      <div class="flex-1 min-h-0 overflow-hidden">
+      <div v-if="mode === 'agent'" class="flex-1 min-h-0 overflow-hidden">
         <AgentFlow :flowId="id ?? 'demo'"/>
       </div>
     </div>

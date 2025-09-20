@@ -4,6 +4,9 @@ import {useScroll, useStorage, useEventListener} from '@vueuse/core'
 import MessageRenderer from '@/components/flow/agent/MessageRenderer.vue'
 import type {ChatMessage, UserMessage, AgentEvent} from '@/components/flow/agent/types'
 import {useAgentFlow} from '@/composables/useAgentFlow'
+import { useI18n } from '@/composables/useI18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{ flowId?: string }>()
 
@@ -16,18 +19,18 @@ const history = useStorage<ChatMessage[]>(storageKey.value, [], localStorage, {
 })
 
 const container = ref<HTMLElement | null>(null)
-const { scrollTo } = useScroll(container)
+const {scrollTo} = useScroll(container)
 
 function scrollToBottom() {
   nextTick(() => {
     const el = container.value
     if (!el) return
-    scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    scrollTo({top: el.scrollHeight, behavior: 'smooth'})
   })
 }
 
 const input = ref('')
-const { sendToAgent, isBusy, mockBoot } = useAgentFlow({
+const {sendToAgent, isBusy, mockBoot} = useAgentFlow({
   onAppend(msg) {
     history.value.push(msg)
     scrollToBottom()
@@ -41,7 +44,7 @@ function send() {
     id: crypto.randomUUID(),
     role: 'user',
     type: 'text',
-    content: { text },
+    content: {text},
     ts: Date.now(),
   }
   history.value.push(userMsg)
@@ -61,8 +64,10 @@ if (history.value.length === 0) {
 </script>
 
 <template>
-  <div class="flex flex-1 h-full w-full min-w-0 min-h-0 flex-col rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
-    <div class="shrink-0 flex items-center gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
+  <div
+    class="flex flex-1 h-full w-full min-w-0 min-h-0 flex-col rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+    <div
+      class="shrink-0 flex items-center gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
       <i class="pi pi-comments text-lg"></i>
       <div class="font-medium">Agent chat</div>
       <div class="ml-auto">
@@ -82,7 +87,8 @@ if (history.value.length === 0) {
       />
 
       <div v-if="isBusy" class="flex justify-start">
-        <div class="max-w-[75%] rounded-2xl rounded-bl-md bg-neutral-100 px-3 py-2 text-sm text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100">
+        <div
+          class="max-w-[75%] rounded-2xl rounded-bl-md bg-neutral-100 px-3 py-2 text-sm text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100">
           <div class="flex items-center gap-2">
             <ProgressSpinner style="width:16px;height:16px" strokeWidth="6"/>
             Думаю...
@@ -91,7 +97,8 @@ if (history.value.length === 0) {
       </div>
     </div>
 
-    <div class="shrink-0 border-t border-neutral-200 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] dark:border-neutral-800">
+    <div
+      class="shrink-0 border-t border-neutral-200 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] dark:border-neutral-800">
       <div class="flex items-center gap-2">
         <InputText
           v-model="input"
@@ -99,7 +106,7 @@ if (history.value.length === 0) {
           placeholder="Напишіть повідомлення… (Ctrl/⌘ + Enter — надіслати)"
           @keyup.enter="send"
         />
-        <Button label="Send" icon="pi pi-send" @click="send" :disabled="!input.trim()" />
+        <Button :label="t('button.send')" icon="pi pi-send" @click="send" :disabled="!input.trim()"/>
       </div>
     </div>
   </div>
