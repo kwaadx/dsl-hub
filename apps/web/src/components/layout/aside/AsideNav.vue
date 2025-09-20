@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import {computed, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
-import {onLongPress} from '@vueuse/core'
 import {useFlows} from '@/composables/data/flows/useFlows'
 
 const route = useRoute()
@@ -73,15 +72,6 @@ function openMenu(evt: Event, flow: { id: string; name: string }) {
   inst?.toggle(evt)
 }
 
-function onRowLongPress(flow: { id: string; name: string }) {
-  const rowEl = ref<HTMLElement | null>(null)
-  onLongPress(rowEl, (e) => openMenu(e as Event, flow), {
-    delay: 500,
-    modifiers: {stop: true, prevent: true},
-  })
-  return rowEl
-}
-
 const menuOpenStates = ref<Record<string, boolean>>({})
 
 function setOpen(flowId: string, value: boolean) {
@@ -106,7 +96,6 @@ function setOpen(flowId: string, value: boolean) {
       <div
         v-for="flow in filtered"
         :key="flow.id"
-        :ref="onRowLongPress(flow)"
         :class="{
           'bg-black/5 dark:bg-white/10 font-medium': route.params.id === flow.id,
           'bg-black/5 dark:bg-white/10': menuOpenStates[flow.id]
@@ -121,7 +110,7 @@ function setOpen(flowId: string, value: boolean) {
         </RouterLink>
         <Button
           :class="{
-            '!hidden': !menuOpenStates[flow.id]
+            '!hidden': !menuOpenStates[flow.id] && route.params.id !== flow.id
           }"
           class="ml-2 p-1 rounded group-hover:!flex items-center justify-center cursor-pointer"
           icon="pi pi-ellipsis-v"

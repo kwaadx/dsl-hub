@@ -6,7 +6,7 @@ const year = ref(new Date().getFullYear());
 
 <template>
   <footer
-    class="bg-white dark:bg-neutral-800 flex justify-center text-xs text-neutral-500 w-full p-3">
+    class="bg-white dark:bg-neutral-800 flex justify-center text-xs text-neutral-500 w-full px-3 pb-3">
     © {{ year }} DSL Hub
   </footer>
 </template>

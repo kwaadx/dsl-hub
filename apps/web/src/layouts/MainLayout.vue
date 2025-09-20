@@ -27,7 +27,7 @@ const layoutStore = useLayoutStore()
       </div>
     </div>
 
-    <div v-if="!layoutStore.sidebarVisible" class="absolute left-3 top-4 z-40 md:hidden">
+    <div v-if="!layoutStore.sidebarVisible" class="absolute left-3 top-4 z-40">
       <i class="pi pi-bars !text-2xl cursor-pointer" @click="layoutStore.toggleSidebar"/>
     </div>
 
