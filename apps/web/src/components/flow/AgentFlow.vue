@@ -4,9 +4,9 @@ import {useScroll, useStorage, useEventListener} from '@vueuse/core'
 import MessageRenderer from '@/components/flow/agent/MessageRenderer.vue'
 import type {ChatMessage, UserMessage, AgentEvent} from '@/components/flow/agent/types'
 import {useAgentFlow} from '@/composables/useAgentFlow'
-import { useI18n } from '@/composables/useI18n'
+import {useI18n} from '@/composables/useI18n'
 
-const { t } = useI18n()
+const {t} = useI18n()
 
 const props = defineProps<{ flowId?: string }>()
 
@@ -19,13 +19,13 @@ const history = useStorage<ChatMessage[]>(storageKey.value, [], localStorage, {
 })
 
 const container = ref<HTMLElement | null>(null)
-const {scrollTo} = useScroll(container)
+const {y} = useScroll(container, {behavior: 'smooth'})
 
 function scrollToBottom() {
   nextTick(() => {
     const el = container.value
     if (!el) return
-    scrollTo({top: el.scrollHeight, behavior: 'smooth'})
+    y.value = el.scrollHeight
   })
 }
 
@@ -106,7 +106,8 @@ if (history.value.length === 0) {
           placeholder="Напишіть повідомлення… (Ctrl/⌘ + Enter — надіслати)"
           @keyup.enter="send"
         />
-        <Button :label="t('button.send')" icon="pi pi-send" @click="send" :disabled="!input.trim()"/>
+        <Button :label="t('button.send')" icon="pi pi-send" @click="send"
+                :disabled="!input.trim()"/>
       </div>
     </div>
   </div>
