@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {ref, nextTick, computed} from 'vue'
+import {ref, nextTick, computed, onMounted} from 'vue'
 import {useScroll, useStorage, useEventListener} from '@vueuse/core'
 import MessageRenderer from '@/components/flow/agent/MessageRenderer.vue'
 import type {ChatMessage, UserMessage, AgentEvent} from '@/components/flow/agent/types'
@@ -61,6 +61,10 @@ if (history.value.length === 0) {
   mockBoot()
   nextTick(scrollToBottom)
 }
+
+onMounted(() => {
+  scrollToBottom()
+})
 </script>
 
 <template>

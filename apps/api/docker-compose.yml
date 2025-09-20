@@ -1,0 +1,10 @@
+services:
+  api:
+    build: .
+    env_file: .env
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./src:/app/src
+      - ./prisma:/app/prisma
+    command: sh -c "npm run db:push && npm run dev"

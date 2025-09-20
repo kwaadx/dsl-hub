@@ -1,14 +1,13 @@
 <script setup lang="ts">
-import {computed} from 'vue'
-import {useFlowById} from '@/composables/data/flows/useFlowById'
-import AgentFlow from "@/components/flow/AgentFlow.vue";
+import { computed } from 'vue'
+import { useFlowById } from '@/composables/data/flows/useFlowById'
+import AgentFlow from '@/components/flow/AgentFlow.vue'
 
 const props = defineProps<{ id: string; mode?: string }>()
-
 const id = computed(() => String(props.id ?? ''))
 const mode = computed(() => props.mode ?? 'agent')
 
-const {data: flow, isLoading, isError, error} = useFlowById(id)
+const { data: flow, isLoading, isError, error } = useFlowById(id)
 </script>
 
 <template>
@@ -22,7 +21,11 @@ const {data: flow, isLoading, isError, error} = useFlowById(id)
       {{ (error as Error).message || 'Failed to load flow' }}
     </div>
 
-    <div v-else class="flex flex-1 min-h-0 flex-col gap-3 items-stretch">
+    <div
+      v-else
+      class="flex flex-1 min-h-0 flex-col gap-3 items-stretch"
+      :key="`flow-shell:${id}:${mode}`"
+    >
       <header class="shrink-0 flex items-center justify-between gap-2">
         <h1 class="text-xl font-semibold truncate">
           {{ flow?.name }}
@@ -30,7 +33,7 @@ const {data: flow, isLoading, isError, error} = useFlowById(id)
       </header>
 
       <div v-if="mode === 'agent'" class="flex-1 min-h-0 overflow-hidden">
-        <AgentFlow :flowId="id ?? 'demo'"/>
+        <AgentFlow :key="`agent:${id}`" :flowId="id" />
       </div>
     </div>
   </section>

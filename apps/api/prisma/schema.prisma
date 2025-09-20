@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Flow {
+  id          String       @id @default(cuid())
+  name        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  threads     Thread[]
+  pipelines   Pipeline[]
+  summaries   FlowSummary[]
+  logs        AgentLog[]
+}
+
+enum ThreadStatus {
+  NEW
+  IN_PROGRESS
+  SUCCESS
+  FAILED
+  ARCHIVED
+}
+
+model Thread {
+  id         String        @id @default(cuid())
+  flowId     String
+  flow       Flow          @relation(fields: [flowId], references: [id])
+  status     ThreadStatus  @default(NEW)
+  archived   Boolean       @default(false)
+  archivedAt DateTime?
+  startedAt  DateTime      @default(now())
+  closedAt   DateTime?
+  updatedAt  DateTime      @updatedAt
+  messages   Message[]
+  logs       AgentLog[]
+}
+
+enum MessageRole {
+  user
+  assistant
+  system
+  tool
+}
+
+enum MessageFormat {
+  text
+  markdown
+  json
+  buttons
+  card
+}
+
+model Message {
+  id        String        @id @default(cuid())
+  threadId  String
+  thread    Thread        @relation(fields: [threadId], references: [id])
+  role      MessageRole
+  format    MessageFormat @default(text)
+  content   Json
+  createdAt DateTime      @default(now())
+}
+
+model Pipeline {
+  id            String   @id @default(cuid())
+  flowId        String
+  flow          Flow     @relation(fields: [flowId], references: [id])
+  version       String   // pipeline/app version (e.g. v1.2.0)
+  schemaVersion String   // DSL schema version (e.g. 3.0)
+  status        String   @default("draft") // draft | valid | ready
+  content       Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model SchemaDef {
+  id        String   @id @default(cuid())
+  name      String
+  version   String
+  json      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FlowSummary {
+  id        String   @id @default(cuid())
+  flowId    String
+  flow      Flow     @relation(fields: [flowId], references: [id])
+  version   Int      @default(1)
+  content   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model GlobalSummary {
+  id        String   @id @default(cuid())
+  content   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AgentLog {
+  id        String   @id @default(cuid())
+  flowId    String?
+  threadId  String?
+  level     String
+  event     String
+  data      Json?
+  createdAt DateTime @default(now())
+
+  flow   Flow?   @relation(fields: [flowId], references: [id])
+  thread Thread? @relation(fields: [threadId], references: [id])
+}
+
+@@index([flowId])
+@@index([threadId])
