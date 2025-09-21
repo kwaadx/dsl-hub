@@ -45,16 +45,33 @@ export async function maybeRotate(threadId: string) {
   const t = await db.thread.findUnique({ where: { id: threadId } })
   if (!t) throw { status: 404, message: 'thread not found' }
 
-  const shouldArchive = (t.archived || t.status === 'SUCCESS') andOlderThan(t.updatedAt, env.ARCHIVE_AFTER_MIN)
+  const shouldArchive =
+      (t.archived || t.status === 'SUCCESS') &&
+      andOlderThan(t.updatedAt, env.ARCHIVE_AFTER_MIN)
+
   if (!shouldArchive) return { rotated: false }
 
   if (!t.archived) {
-    await db.thread.update({ where: { id: threadId }, data: { archived: true, archivedAt: new Date(), status: 'ARCHIVED', closedAt: new Date() } })
+    await db.thread.update({
+      where: { id: threadId },
+      data: {
+        archived: true,
+        archivedAt: new Date(),
+        status: 'ARCHIVED',
+        closedAt: new Date(),
+      },
+    })
   } else if (t.status !== 'ARCHIVED') {
-    await db.thread.update({ where: { id: threadId }, data: { status: 'ARCHIVED' } })
+    await db.thread.update({
+      where: { id: threadId },
+      data: { status: 'ARCHIVED' },
+    })
   }
 
-  const newThread = await db.thread.create({ data: { flowId: t.flowId, status: 'NEW' } })
+  const newThread = await db.thread.create({
+    data: { flowId: t.flowId, status: 'NEW' },
+  })
+
   return { rotated: true, newThread }
 }
 

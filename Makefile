@@ -64,6 +64,10 @@ enter-web:
 	$(call INFO,Entering dsl-hub-web container...)
 	@docker exec -it dsl-hub-web sh
 
+enter-api:
+	$(call INFO,Entering dsl-hub-api container...)
+	@docker exec -it dsl-hub-api sh
+
 # ───────────────────────────────────────────────
 # 🧱 Web
 # ───────────────────────────────────────────────
@@ -101,5 +105,5 @@ clear-docker-logs:
 # ───────────────────────────────────────────────
 .PHONY: \
 	clean-docker clear-docker-logs \
-	build-web enter-web \
+	build-web enter-web enter-api \
 	build-services restart-services start-services stop-services
