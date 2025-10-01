@@ -1,12 +1,15 @@
-from sqlalchemy import Column, String, DateTime, Boolean, Integer, ForeignKey, JSON, LargeBinary
+from sqlalchemy import (
+    Column, String, DateTime, Boolean, Integer, ForeignKey, JSON, LargeBinary
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, CITEXT
 from sqlalchemy import ARRAY
 import enum
+
 from .database import Base
 
-# Enums used in code logic only (DB stores text)
+
 class ThreadStatus(str, enum.Enum):
     NEW = "NEW"
     IN_PROGRESS = "IN_PROGRESS"
@@ -14,12 +17,11 @@ class ThreadStatus(str, enum.Enum):
     FAILED = "FAILED"
     ARCHIVED = "ARCHIVED"
 
-# Models aligned with SQL schema (singular table names)
 class Flow(Base):
     __tablename__ = "flow"
 
     id = Column(UUID(as_uuid=False), primary_key=True, index=True)
-    slug = Column(String, unique=True, nullable=False)
+    slug = Column(CITEXT, unique=True, nullable=False)
     name = Column(String, nullable=False)
     meta = Column(JSON, nullable=False, default=dict)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
@@ -32,6 +34,7 @@ class Flow(Base):
     logs = relationship("AgentLog", back_populates="flow")
     generation_runs = relationship("GenerationRun", back_populates="flow")
     summary_runs = relationship("SummaryRun", back_populates="flow")
+    context_snapshots = relationship("ContextSnapshot", back_populates="flow")
 
 class Thread(Base):
     __tablename__ = "thread"
@@ -62,7 +65,7 @@ class Message(Base):
 
     id = Column(UUID(as_uuid=False), primary_key=True, index=True)
     thread_id = Column(UUID(as_uuid=False), ForeignKey("thread.id", ondelete="CASCADE"), nullable=False)
-    role = Column(String, nullable=False)  # user|assistant|system|tool
+    role = Column(String, nullable=False)                    # user|assistant|system|tool
     format = Column(String, nullable=False, default="text")  # text|markdown|json|buttons|card
     parent_id = Column(UUID(as_uuid=False), ForeignKey("message.id", ondelete="SET NULL"), nullable=True)
     tool_name = Column(String, nullable=True)
@@ -90,8 +93,16 @@ class SchemaDef(Base):
     pipelines = relationship("Pipeline", back_populates="schema_def")
     schema_channels = relationship("SchemaChannel", back_populates="active_schema")
     context_snapshots = relationship("ContextSnapshot", back_populates="schema_def")
-    upgrade_plans_from = relationship("SchemaUpgradePlan", back_populates="from_schema_def", foreign_keys=lambda: [SchemaUpgradePlan.from_schema_def_id])
-    upgrade_plans_to = relationship("SchemaUpgradePlan", back_populates="to_schema_def", foreign_keys=lambda: [SchemaUpgradePlan.to_schema_def_id])
+    upgrade_plans_from = relationship(
+        "SchemaUpgradePlan",
+        back_populates="from_schema_def",
+        foreign_keys=lambda: [SchemaUpgradePlan.from_schema_def_id],
+    )
+    upgrade_plans_to = relationship(
+        "SchemaUpgradePlan",
+        back_populates="to_schema_def",
+        foreign_keys=lambda: [SchemaUpgradePlan.to_schema_def_id],
+    )
     compat_rules = relationship("CompatRule", back_populates="schema_def")
 
 class SchemaChannel(Base):
@@ -112,7 +123,7 @@ class Pipeline(Base):
     flow_id = Column(UUID(as_uuid=False), ForeignKey("flow.id", ondelete="CASCADE"), nullable=False)
     version = Column(String, nullable=False)
     schema_version = Column(String, nullable=False)
-    schema_def_id = Column(UUID(as_uuid=False), ForeignKey("schema_def.id", ondelete="RESTRICT"), nullable=True)
+    schema_def_id = Column(UUID(as_uuid=False), ForeignKey("schema_def.id", ondelete="RESTRICT"), nullable=False)
     status = Column(String, nullable=False, default="draft")
     is_published = Column(Boolean, nullable=False, default=False)
     content = Column(JSON, nullable=False)
@@ -124,6 +135,7 @@ class Pipeline(Base):
     flow = relationship("Flow", back_populates="pipelines")
     schema_def = relationship("SchemaDef", back_populates="pipelines")
     generation_runs = relationship("GenerationRun", back_populates="pipeline")
+    context_snapshots = relationship("ContextSnapshot", back_populates="pipeline")
 
 class GenerationRun(Base):
     __tablename__ = "generation_run"
@@ -209,11 +221,11 @@ class ContextSnapshot(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     # Relations
-    flow = relationship("Flow")
+    flow = relationship("Flow", back_populates="context_snapshots")
     origin_thread = relationship("Thread", foreign_keys=[origin_thread_id])
     schema_def = relationship("SchemaDef", back_populates="context_snapshots")
     flow_summary = relationship("FlowSummary", back_populates="context_snapshots")
-    pipeline = relationship("Pipeline")
+    pipeline = relationship("Pipeline", back_populates="context_snapshots")
 
 class SummaryRun(Base):
     __tablename__ = "summary_run"
@@ -222,8 +234,8 @@ class SummaryRun(Base):
     flow_id = Column(UUID(as_uuid=False), ForeignKey("flow.id", ondelete="CASCADE"), nullable=False)
     thread_id = Column(UUID(as_uuid=False), ForeignKey("thread.id", ondelete="SET NULL"), nullable=True)
     flow_summary_id = Column(UUID(as_uuid=False), ForeignKey("flow_summary.id", ondelete="SET NULL"), nullable=True)
-    stage = Column(String, nullable=False)  # collect|chunk|summarize|merge|commit
-    status = Column(String, nullable=False, default="queued")  # queued|running|succeeded|failed
+    stage = Column(String, nullable=False)                    # collect|chunk|summarize|merge|commit
+    status = Column(String, nullable=False, default="queued") # queued|running|succeeded|failed
     source = Column(JSON, nullable=False)
     result = Column(JSON, nullable=True)
     error = Column(String, nullable=True)
@@ -271,8 +283,8 @@ class PipelineUpgradeRun(Base):
     from_schema_def_id = Column(UUID(as_uuid=False), ForeignKey("schema_def.id", ondelete="RESTRICT"), nullable=False)
     to_schema_def_id = Column(UUID(as_uuid=False), ForeignKey("schema_def.id", ondelete="RESTRICT"), nullable=False)
     upgrade_plan_id = Column(UUID(as_uuid=False), ForeignKey("schema_upgrade_plan.id", ondelete="SET NULL"), nullable=True)
-    status = Column(String, nullable=False, default="queued")  # queued|running|succeeded|failed|skipped
-    mode = Column(String, nullable=False, default="auto")  # auto|assisted|manual
+    status = Column(String, nullable=False, default="queued")   # queued|running|succeeded|failed|skipped
+    mode = Column(String, nullable=False, default="auto")       # auto|assisted|manual
     diff = Column(JSON, nullable=True)
     issues = Column(JSON, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
@@ -303,7 +315,7 @@ class AgentLog(Base):
     id = Column(UUID(as_uuid=False), primary_key=True, index=True)
     flow_id = Column(UUID(as_uuid=False), ForeignKey("flow.id", ondelete="SET NULL"), nullable=True)
     thread_id = Column(UUID(as_uuid=False), ForeignKey("thread.id", ondelete="SET NULL"), nullable=True)
-    level = Column(String, nullable=False)
+    level = Column(String, nullable=False)  # debug|info|warn|error
     event = Column(String, nullable=False)
     data = Column(JSON, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
