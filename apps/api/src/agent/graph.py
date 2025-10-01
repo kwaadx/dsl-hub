@@ -39,8 +39,26 @@ class AgentRunner:
         self.similarity = SimilarityService()
         self.llm = LLMClient()
 
-    async def run(self, flow_id: str, thread_id: str, user_message: Dict[str, Any], options: Dict[str, Any] | None = None) -> str:
-        run_id = str(uuid.uuid4())
+    def _gather_context(self, flow_id: str) -> Dict[str, Any]:
+        from sqlalchemy import select
+        from ..models import SchemaChannel, FlowSummary, Pipeline
+        from ..config import settings
+        db = self.session_factory()
+        try:
+            ch = db.execute(select(SchemaChannel).where(SchemaChannel.name==settings.APP_SCHEMA_CHANNEL)).scalar_one_or_none()
+            schema_def = ch.active_schema.json if ch and ch.active_schema else {}
+            fs = db.execute(select(FlowSummary).where(FlowSummary.flow_id==flow_id, FlowSummary.is_active==True).limit(1)).scalar_one_or_none()
+            ap = db.execute(select(Pipeline).where(Pipeline.flow_id==flow_id, Pipeline.is_published==True).limit(1)).scalar_one_or_none()
+            return {
+                "schema_def": schema_def,
+                "flow_summary": (fs.content if fs else None),
+                "active_pipeline": (ap.content if ap else None),
+            }
+        finally:
+            db.close()
+
+    async def run(self, flow_id: str, thread_id: str, user_message: Dict[str, Any], options: Dict[str, Any] | None = None, run_id: str | None = None) -> str:
+        run_id = run_id or str(uuid.uuid4())
         # compose state
         state: AgentState = {
             "flow_id": flow_id,
@@ -59,8 +77,9 @@ class AgentRunner:
             await bus.publish(s["thread_id"], "run.started", {"run_id": s["run_id"], "stage": "discovery"})
             db = self.session_factory()
             runs = RunsRepo(db)
-            runs.start(s["run_id"], s["flow_id"], s["thread_id"], stage="discovery", source=s["user_message"])
+            runs.start(s["run_id"], s["flow_id"], s["thread_id"], stage="discovery", source=s["user_message"]) 
             runs.tick(s["run_id"], stage="discovery", status="succeeded")
+            db.commit()
             db.close()
             return s
 
@@ -71,6 +90,7 @@ class AgentRunner:
             # persist stage
             db = self.session_factory(); runs = RunsRepo(db)
             runs.tick(s["run_id"], stage="search_existing", status="succeeded")
+            db.commit()
             db.close()
             if cand:
                 await bus.publish(s["thread_id"], "suggestion", cand)
@@ -84,10 +104,13 @@ class AgentRunner:
 
         async def generate_node(s: AgentState) -> AgentState:
             await bus.publish(s["thread_id"], "run.stage", {"run_id": s["run_id"], "stage": "generate", "status": "running"})
-            draft = await self.llm.generate_pipeline({}, s["user_message"])
+            # gather context for LLM
+            ctx = self._gather_context(s["flow_id"]) 
+            draft = await self.llm.generate_pipeline(ctx, s["user_message"])
             s["draft"] = draft
             db = self.session_factory(); runs = RunsRepo(db)
             runs.tick(s["run_id"], stage="generate", status="succeeded", result={"draft_head": list(draft.keys())})
+            db.commit()
             db.close()
             await bus.publish(s["thread_id"], "agent.msg", {"role":"assistant","format":"markdown","content":{"text":"Генерую пайплайн…"}})
             await bus.publish(s["thread_id"], "run.stage", {"run_id": s["run_id"], "stage": "generate", "status": "succeeded"})
@@ -99,6 +122,7 @@ class AgentRunner:
             s["notes"] = notes
             db = self.session_factory(); runs = RunsRepo(db)
             runs.tick(s["run_id"], stage="self_check", status="succeeded", result={"notes": notes})
+            db.commit()
             db.close()
             await bus.publish(s["thread_id"], "agent.msg", {"role":"assistant","format":"markdown","content":{"text":"Перевіряю узгодженість…"}})
             await bus.publish(s["thread_id"], "run.stage", {"run_id": s["run_id"], "stage": "self_check", "status": "succeeded"})
@@ -113,6 +137,9 @@ class AgentRunner:
             runs = RunsRepo(db)
             status = "failed" if issues else "succeeded"
             runs.tick(s["run_id"], stage="hard_validate", status=status, result={"issues": issues})
+            if issues:
+                runs.add_issues(s["run_id"], issues)
+            db.commit()
             db.close()
             if issues:
                 await bus.publish(s["thread_id"], "issues", {"items": issues})
@@ -126,9 +153,10 @@ class AgentRunner:
             await bus.publish(s["thread_id"], "run.stage", {"run_id": s["run_id"], "stage": "persist", "status": "running"})
             db = self.session_factory()
             pipelines = PipelineService(db)
-            p = pipelines.create_version(s["flow_id"], s.get("draft") or {}, version="1.0.0")
+            p = pipelines.create_version(s["flow_id"], s.get("draft") or {})
             s["persisted"] = {"pipeline_id": str(p.id), "version": p.version}
             runs = RunsRepo(db); runs.tick(s["run_id"], stage="persist", status="succeeded")
+            db.commit()
             db.close()
             await bus.publish(s["thread_id"], "pipeline.created", {"pipeline_id": str(p.id), "version": p.version, "status": p.status})
             return s
@@ -144,13 +172,16 @@ class AgentRunner:
                 pipelines.publish(s["persisted"]["pipeline_id"])
                 await bus.publish(s["thread_id"], "pipeline.published", {"pipeline_id": s["persisted"]["pipeline_id"], "version": s["persisted"]["version"]})
             runs = RunsRepo(db); runs.tick(s["run_id"], stage="publish", status="succeeded")
+            db.commit()
             db.close()
             return s
 
         async def finish_node(s: AgentState) -> AgentState:
             status = "failed" if s.get("issues") else "succeeded"
             db = self.session_factory(); runs = RunsRepo(db)
-            runs.finish(s["run_id"], status=status); db.close()
+            runs.finish(s["run_id"], status=status)
+            db.commit()
+            db.close()
             await bus.publish(s["thread_id"], "run.finished", {"run_id": s["run_id"], "status": status})
             return s
 

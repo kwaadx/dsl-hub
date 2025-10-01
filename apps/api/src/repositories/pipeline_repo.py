@@ -15,8 +15,18 @@ class PipelineRepo:
     def get(self, pid):
         return self.db.get(Pipeline, pid)
 
-    def create_version(self, id, flow_id, schema_def_id, version, content, status="draft", is_published=False, schema_version=None):
-        p = Pipeline(id=id, flow_id=flow_id, schema_def_id=schema_def_id, version=version, content=content, status=status, is_published=is_published, schema_version=schema_version or "1.0.0")
+    def create_version(self, id, flow_id, schema_def_id, version, content, status="draft", is_published=False, schema_version=None, content_hash=None):
+        p = Pipeline(
+            id=id,
+            flow_id=flow_id,
+            schema_def_id=schema_def_id,
+            version=version,
+            content=content,
+            status=status,
+            is_published=is_published,
+            schema_version=schema_version or "1.0.0",
+            content_hash=content_hash,
+        )
         self.db.add(p); self.db.flush()
         return p
 

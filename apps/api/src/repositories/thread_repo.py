@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from ..models import Thread, ContextSnapshot, SchemaChannel, FlowSummary, Pipeline, SchemaDef
 from ..config import settings
+import uuid
 
 class ThreadRepo:
     def __init__(self, db: Session):
@@ -17,7 +18,7 @@ class ThreadRepo:
         fs = self.db.execute(select(FlowSummary).where(FlowSummary.flow_id==flow_id, FlowSummary.is_active==True).limit(1)).scalar_one_or_none()
         pub = self.db.execute(select(Pipeline).where(Pipeline.flow_id==flow_id, Pipeline.is_published==True).limit(1)).scalar_one_or_none()
 
-        snap = ContextSnapshot(id=id.replace('-', '')[:32] + "snap",  # naive id for demo
+        snap = ContextSnapshot(id=str(uuid.uuid4()),
                                flow_id=flow_id,
                                origin_thread_id=t.id,
                                schema_def_id=schema_def_id,

@@ -4,6 +4,8 @@ from sqlalchemy import select
 from ..models import SchemaChannel, SchemaDef
 from ..config import settings
 
+SEV_ERROR = {"required", "type", "enum"}
+
 class ValidationService:
     def __init__(self, db: Session):
         self.db = db
@@ -21,11 +23,27 @@ class ValidationService:
         v = Draft7Validator(schema)
         issues = []
         for e in v.iter_errors(pipeline):
+            code = getattr(e, "validator", "schema") or "schema"
+            path = "/" + "/".join([str(x) for x in e.path])
+            severity = "error" if code in SEV_ERROR else "warning"
             issues.append({
-                "path": "/" + "/".join([str(x) for x in e.path]),
-                "code": "schema_error",
-                "severity": "error",
+                "path": path,
+                "code": code,
+                "severity": severity,
                 "message": e.message
             })
-        # TODO: add domain-specific rules here
+        # Domain rules: duplicate stage names
+        try:
+            stages = pipeline.get("stages", []) if isinstance(pipeline, dict) else []
+            names = [s.get("name") for s in stages if isinstance(s, dict)]
+            dups = {n for n in names if n is not None and names.count(n) > 1}
+            for n in dups:
+                issues.append({
+                    "path": "/stages",
+                    "code": "duplicate_id",
+                    "severity": "error",
+                    "message": f"Duplicate stage name: {n}"
+                })
+        except Exception:
+            pass
         return issues

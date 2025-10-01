@@ -24,6 +24,7 @@ class ThreadOut(BaseModel):
 class MessageIn(BaseModel):
     role: str
     content: Any
+    format: Optional[str] = "text"
     parent_id: Optional[str] = None
     tool_name: Optional[str] = None
     tool_result: Optional[Any] = None
