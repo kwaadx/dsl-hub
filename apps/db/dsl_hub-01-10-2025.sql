@@ -124,12 +124,16 @@ create table if not exists schema_channel (
                                               id                    uuid primary key default gen_random_uuid(),
                                               name                  text not null unique, -- e.g. 'stable'|'beta'|'next'
                                               active_schema_def_id  uuid not null references schema_def(id) on delete restrict,
-                                              updated_at            timestamptz not null default now()
+                                              updated_at            timestamptz not null default now(),
+                                              constraint schema_channel_name_ck check (name in ('stable','beta','next'))
 );
 drop trigger if exists schema_channel_set_updated_at on schema_channel;
 create trigger schema_channel_set_updated_at
     before update on schema_channel
     for each row execute function set_updated_at();
+
+create index if not exists schema_channel_active_schema_idx
+    on schema_channel(active_schema_def_id);
 
 -- =========================================================
 -- 3) Pipelines
@@ -174,7 +178,6 @@ create trigger pipeline_set_updated_at
     before update on pipeline
     for each row execute function set_updated_at();
 
--- Version sync: keep schema_version consistent with schema_def_id
 create or replace function pipeline_sync_schema_version() returns trigger as $$
 begin
     if new.schema_def_id is not null then
@@ -188,7 +191,6 @@ create trigger pipeline_sync_schema_version_trg
     before insert or update of schema_def_id on pipeline
     for each row execute function pipeline_sync_schema_version();
 
--- Bind thread.result_pipeline_id after pipeline exists
 alter table thread
     drop constraint if exists thread_result_pipeline_fkey;
 alter table thread
@@ -218,12 +220,17 @@ create table if not exists generation_run (
                                               constraint generation_run_ts_order_ck check (
                                                   (started_at is null or started_at >= created_at) and
                                                   (finished_at is null or (started_at is not null and finished_at >= started_at))
-                                                  )
+                                                  ),
+                                              constraint generation_run_source_obj_ck check (jsonb_typeof(source) = 'object'),
+                                              constraint generation_run_result_obj_ck check (result is null or jsonb_typeof(result) = 'object'),
+                                              constraint generation_run_cost_obj_ck   check (cost   is null or jsonb_typeof(cost)   = 'object')
 );
 create index if not exists generation_run_flow_status_idx
     on generation_run(flow_id, status, created_at desc);
 create index if not exists generation_run_thread_idx
     on generation_run(thread_id, created_at desc);
+create index if not exists generation_run_pipeline_idx
+    on generation_run(pipeline_id, created_at desc);
 
 create table if not exists validation_issue (
                                                 id                 uuid primary key default gen_random_uuid(),
@@ -271,7 +278,9 @@ create table if not exists flow_summary (
                                             created_at       timestamptz not null default now(),
                                             updated_at       timestamptz not null default now(),
                                             constraint flow_summary_flow_version_uk unique (flow_id, version),
-                                            constraint flow_summary_content_obj_ck check (jsonb_typeof(content) = 'object')
+                                            constraint flow_summary_content_obj_ck check (jsonb_typeof(content) = 'object'),
+                                            constraint flow_summary_pinned_obj_ck  check (jsonb_typeof(pinned)  = 'object'),
+                                            constraint flow_summary_version_pos_ck check (version >= 1)
 );
 alter table flow_summary
     drop constraint if exists flow_summary_last_msg_fk;
@@ -303,8 +312,10 @@ create table if not exists thread_summary (
                                               covering_from  timestamptz,
                                               covering_to    timestamptz,
                                               created_at     timestamptz not null default now(),
-                                              constraint thread_summary_kind_ck   check (kind in ('short','detailed','system')),
-                                              constraint thread_summary_content_obj_ck check (jsonb_typeof(content) = 'object')
+                                              constraint thread_summary_kind_ck         check (kind in ('short','detailed','system')),
+                                              constraint thread_summary_content_obj_ck  check (jsonb_typeof(content) = 'object'),
+                                              constraint thread_summary_covering_order_ck
+                                                  check (covering_to is null or covering_from is null or covering_to >= covering_from)
 );
 create index if not exists thread_summary_thread_idx on thread_summary(thread_id);
 create index if not exists thread_summary_content_gin
@@ -327,7 +338,8 @@ create table if not exists context_snapshot (
                                                 flow_summary_id   uuid references flow_summary(id) on delete set null,
                                                 pipeline_id       uuid references pipeline(id) on delete set null,
                                                 notes             jsonb not null default '{}'::jsonb,
-                                                created_at        timestamptz not null default now()
+                                                created_at        timestamptz not null default now(),
+                                                constraint context_snapshot_notes_obj_ck check (jsonb_typeof(notes) = 'object')
 );
 create index if not exists context_snapshot_flow_created_idx
     on context_snapshot(flow_id, created_at desc);
@@ -363,12 +375,17 @@ create table if not exists summary_run (
                                            constraint summary_run_ts_order_ck check (
                                                (started_at is null or started_at >= created_at) and
                                                (finished_at is null or (started_at is not null and finished_at >= started_at))
-                                               )
+                                               ),
+                                           constraint summary_run_source_obj_ck check (jsonb_typeof(source) = 'object'),
+                                           constraint summary_run_result_obj_ck check (result is null or jsonb_typeof(result) = 'object'),
+                                           constraint summary_run_cost_obj_ck   check (cost   is null or jsonb_typeof(cost)   = 'object')
 );
 create index if not exists summary_run_flow_status_idx
     on summary_run(flow_id, status, created_at desc);
 create index if not exists summary_run_thread_idx
     on summary_run(thread_id, created_at desc);
+create index if not exists summary_run_flow_summary_idx
+    on summary_run(flow_summary_id, created_at desc);
 
 -- =========================================================
 -- 9) Prompt Templates
@@ -399,7 +416,9 @@ create table if not exists schema_upgrade_plan (
                                                    notes                text,
                                                    created_at           timestamptz not null default now(),
                                                    updated_at           timestamptz not null default now(),
-                                                   constraint schema_upgrade_plan_from_to_uk unique (from_schema_def_id, to_schema_def_id)
+                                                   constraint schema_upgrade_plan_from_to_uk unique (from_schema_def_id, to_schema_def_id),
+                                                   constraint schema_upgrade_plan_strategy_ck check (strategy in ('transform','no_change','manual_only','deprecated')),
+                                                   constraint schema_upgrade_plan_from_to_diff_ck check (from_schema_def_id <> to_schema_def_id)
 );
 drop trigger if exists schema_upgrade_plan_set_updated_at on schema_upgrade_plan;
 create trigger schema_upgrade_plan_set_updated_at
@@ -424,7 +443,9 @@ create table if not exists pipeline_upgrade_run (
                                                     constraint pipeline_upgrade_run_ts_order_ck check (
                                                         (started_at is null or started_at >= created_at) and
                                                         (finished_at is null or (started_at is not null and finished_at >= started_at))
-                                                        )
+                                                        ),
+                                                    constraint pipeline_upgrade_run_diff_obj_ck   check (diff   is null or jsonb_typeof(diff)   = 'object'),
+                                                    constraint pipeline_upgrade_run_issues_obj_ck check (issues is null or jsonb_typeof(issues) = 'object')
 );
 create index if not exists pipeline_upgrade_run_pipeline_idx
     on pipeline_upgrade_run(pipeline_id, created_at desc);
@@ -446,7 +467,7 @@ create trigger compat_rule_set_updated_at
 -- Cross-flow integrity functions/triggers (defined after tables)
 -- =========================================================
 
--- Message parent must belong to the same thread
+-- Parent message must be in the same thread
 create or replace function message_parent_same_thread() returns trigger as $$
 declare parent_thread uuid;
 begin
@@ -464,7 +485,7 @@ create trigger message_parent_same_thread_trg
     before insert or update on message
     for each row execute function message_parent_same_thread();
 
--- flow_summary.last_message_id must belong to flow_summary.flow_id
+-- flow_summary.last_message_id must belong to the same flow
 create or replace function flow_summary_last_msg_same_flow() returns trigger as $$
 declare m_thread uuid; m_flow uuid;
 begin
@@ -487,7 +508,7 @@ create trigger flow_summary_last_msg_same_flow_trg
     before insert or update of last_message_id, flow_id on flow_summary
     for each row execute function flow_summary_last_msg_same_flow();
 
--- context_snapshot pipeline_id / flow_summary_id must belong to the same flow
+-- context_snapshot.pipeline_id / flow_summary_id must belong to the same flow
 create or replace function context_snapshot_same_flow() returns trigger as $$
 declare p_flow uuid; fs_flow uuid;
 begin
@@ -513,7 +534,7 @@ create trigger context_snapshot_same_flow_trg
     before insert or update of flow_id, pipeline_id, flow_summary_id on context_snapshot
     for each row execute function context_snapshot_same_flow();
 
--- generation_run thread_id / pipeline_id must match generation_run.flow_id
+-- generation_run.thread_id / pipeline_id must match generation_run.flow_id
 create or replace function generation_run_same_flow() returns trigger as $$
 declare t_flow uuid; p_flow uuid;
 begin
@@ -539,7 +560,7 @@ create trigger generation_run_same_flow_trg
     before insert or update of flow_id, thread_id, pipeline_id on generation_run
     for each row execute function generation_run_same_flow();
 
--- summary_run thread_id / flow_summary_id must match summary_run.flow_id
+-- summary_run.thread_id / flow_summary_id must match summary_run.flow_id
 create or replace function summary_run_same_flow() returns trigger as $$
 declare t_flow uuid; fs_flow uuid;
 begin
@@ -564,6 +585,42 @@ drop trigger if exists summary_run_same_flow_trg on summary_run;
 create trigger summary_run_same_flow_trg
     before insert or update of flow_id, thread_id, flow_summary_id on summary_run
     for each row execute function summary_run_same_flow();
+
+-- thread.result_pipeline_id must match thread.flow_id
+create or replace function thread_result_pipeline_same_flow() returns trigger as $$
+declare p_flow uuid;
+begin
+    if new.result_pipeline_id is not null then
+        select flow_id into p_flow from pipeline where id = new.result_pipeline_id;
+        if p_flow is null or p_flow <> new.flow_id then
+            raise exception 'result_pipeline_id must belong to the same flow (thread.flow_id)';
+        end if;
+    end if;
+    return new;
+end; $$ language plpgsql;
+
+drop trigger if exists thread_result_pipeline_same_flow_trg on thread;
+create trigger thread_result_pipeline_same_flow_trg
+    before insert or update of flow_id, result_pipeline_id on thread
+    for each row execute function thread_result_pipeline_same_flow();
+
+-- thread.context_snapshot_id must match thread.flow_id
+create or replace function thread_context_snapshot_same_flow() returns trigger as $$
+declare cs_flow uuid;
+begin
+    if new.context_snapshot_id is not null then
+        select flow_id into cs_flow from context_snapshot where id = new.context_snapshot_id;
+        if cs_flow is null or cs_flow <> new.flow_id then
+            raise exception 'context_snapshot_id must belong to the same flow (thread.flow_id)';
+        end if;
+    end if;
+    return new;
+end; $$ language plpgsql;
+
+drop trigger if exists thread_context_snapshot_same_flow_trg on thread;
+create trigger thread_context_snapshot_same_flow_trg
+    before insert or update of flow_id, context_snapshot_id on thread
+    for each row execute function thread_context_snapshot_same_flow();
 
 -- =========================================================
 -- Convenience view(s)
