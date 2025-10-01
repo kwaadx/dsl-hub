@@ -11,7 +11,7 @@ x-health-http: &health-http
   start_period: 10s
 
 x-health-db: &health-db
-  test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-dsl_hub} -h localhost -p ${DB_PORT:-5432}"]
+  test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-dsl_hub} -h db -p ${DB_PORT:-5432}"]
   interval: 10s
   timeout: 5s
   retries: 10
@@ -23,16 +23,18 @@ networks:
 volumes:
   db_data: {}
   web_node_modules: {}
-  api_node_modules: {}
+  runtime_queue: {}
 
 services:
+  # ==========================
+  # Database
+  # ==========================
   db:
     image: postgres:17-alpine
     container_name: dsl-hub-db
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-dsl_hub}
+    env_file:
+      - .env
+      - .env.local
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
@@ -42,37 +44,26 @@ services:
     logging: *default-logging
     networks: [dsl-hub-net]
 
+  # ==========================
+  # API (Python FastAPI)
+  # ==========================
   api:
     build:
       context: ./apps/api
+      dockerfile: Dockerfile
     container_name: dsl-hub-api
     env_file:
       - .env
       - .env.local
-    environment:
-      PORT: ${API_PORT:-3001}
-      NODE_ENV: development
-      LOG_LEVEL: ${LOG_LEVEL:-debug}
-      CHOKIDAR_USEPOLLING: "${CHOKIDAR_USEPOLLING:-1}"
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-dsl_hub}
-      DB_PORT: ${DB_PORT:-5432}
-      DATABASE_HOST: db
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:${DB_PORT:-5432}/${POSTGRES_DB:-dsl_hub}?schema=public
-    ports:
-      - "${API_PORT:-3001}:${API_PORT:-3001}"
+    working_dir: /app/api
     volumes:
-      - ./apps/api/src:/app/src
-      - ./apps/api/prisma:/app/prisma
-      - api_node_modules:/app/node_modules
+      - ./apps/api:/app/api
+    ports:
+      - "${API_PORT:-8000}:${API_PORT:-8000}"
     command: >
-      sh -c "npm ci &&
-             npx prisma generate &&
-             npm run db:push &&
-             npm run dev"
+      sh -c "python -m uvicorn main:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-8000} --reload"
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:${API_PORT:-3001}/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
+      test: ["CMD", "wget", "-qO-", "http://localhost:${API_PORT:-8000}/health || exit 1"]
       <<: *health-http
     depends_on:
       db:
@@ -81,26 +72,45 @@ services:
     logging: *default-logging
     networks: [dsl-hub-net]
 
+  # ==========================
+  # Frontend (Vue 3 + Vite)
+  # ==========================
   web:
     build:
       context: ./apps/web
+      dockerfile: Dockerfile
     container_name: dsl-hub-web
     env_file:
       - .env
       - .env.local
-    environment:
-      NODE_ENV: development
-      LOG_LEVEL: ${LOG_LEVEL:-debug}
-      WEB_HOST: ${WEB_HOST:-0.0.0.0}
-      WEB_PORT: ${WEB_PORT:-3000}
-    ports:
-      - "${WEB_PORT:-3000}:${WEB_PORT:-3000}"
+    working_dir: /app/web
     volumes:
       - ./apps/web:/app/web
       - web_node_modules:/app/web/node_modules
+    ports:
+      - "${WEB_PORT:-3000}:${WEB_PORT:-3000}"
     command: >
       sh -c "npm ci --include=dev &&
              npm run dev -- --host ${WEB_HOST:-0.0.0.0} --port ${WEB_PORT:-3000}"
     restart: unless-stopped
     logging: *default-logging
     networks: [dsl-hub-net]
+
+#  runtime:
+#    build:
+#      context: ./apps/runtime
+#      dockerfile: Dockerfile
+#    container_name: dsl-hub-runtime
+#    env_file:
+#      - .env
+#      - .env.local
+#    environment:
+#      RUNTIME_INBOX: /queue/inbox
+#      RUNTIME_OUTBOX: /queue/outbox
+#      POLL_INTERVAL_MS: 500
+#    volumes:
+#      - runtime_queue:/queue
+#      - ./schemas:/schemas:ro
+#    restart: unless-stopped
+#    logging: *default-logging
+#    networks: [dsl-hub-net]

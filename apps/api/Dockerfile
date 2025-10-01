@@ -1,17 +1,10 @@
-FROM node:24-alpine
-
-RUN apk add --no-cache openssl
+FROM python:3.11-slim
 
 WORKDIR /app/api
 
-COPY package*.json tsconfig.json ./
-RUN npm ci
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --upgrade pip && pip install -r requirements.txt
 
-COPY prisma ./prisma
-RUN npx prisma generate
+COPY . .
 
-COPY src ./src
-
-EXPOSE 3001
-
-CMD ["npm", "run", "dev"]
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

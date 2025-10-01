@@ -1,14 +1,16 @@
-# Environment variables
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# --- Environment variables ---
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+.envrc
 
-# Node.js
+# --- Node.js ---
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+dist/
+coverage/
+.nyc_output/
 .pnpm-debug.log*
 .npm
 .yarn/cache
@@ -16,25 +18,51 @@ yarn-error.log*
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
-dist/
-coverage/
-.nyc_output/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-store/
+.vite/
+node_modules/.vite/
+.next/
+.nuxt/
+.svelte-kit/
+.parcel-cache/
+.eslintcache
+.turbo/
+.vercel/
+.expo/
 
-# Python
+# --- Python ---
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
 env/
+.venv/
+__pypackages__/
+.ipynb_checkpoints/
+.python-version
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.hypothesis/
+.pytest_cache/
+.coverage
+.coverage.*
+.coverage.xml
+htmlcov/
+coverage.xml
+coverage.out
 build/
 develop-eggs/
 downloads/
 eggs/
 .eggs/
 lib/
-!apps/api/src/lib/
-!apps/web/src/lib/
 lib64/
 parts/
 sdist/
@@ -43,12 +71,20 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-.pytest_cache/
-.coverage
-htmlcov/
 
-# IDEs and editors
+# --- Docker & local ops ---
+docker-compose.override.yml
+.docker/
+
+# --- Infra ---
+.terraform/
+
+# --- IDEs & Editors ---
 .idea/
+*.iml
+*.ipr
+*.iws
+out/
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
@@ -65,7 +101,7 @@ htmlcov/
 *.sln
 *.sw?
 
-# OS generated files
+# --- OS generated files ---
 .DS_Store
 .DS_Store?
 ._*
@@ -74,16 +110,12 @@ htmlcov/
 ehthumbs.db
 Thumbs.db
 
-# Logs
-logs
+# --- Logs ---
+logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+*.pid
 
-# Package files
+# --- Archives / Packages ---
 *.jar
 *.war
 *.ear
@@ -91,7 +123,7 @@ lerna-debug.log*
 *.tar.gz
 *.rar
 
-# Media files
+# --- Media files (optional to ignore) ---
 *.mp4
 *.tiff
 *.avi
@@ -101,8 +133,19 @@ lerna-debug.log*
 *.mp3
 *.wav
 
-# Temporary files
+# --- Temp / Cache ---
 *.tmp
 *.temp
 .cache/
 tmp/
+
+# --- Databases ---
+prisma/*.db
+prisma/*.sqlite
+prisma/*-journal
+
+# --- Certificates / Keys ---
+certs/*.pem
+certs/*.key
+!certs/README.md
+!certs/*.example*
