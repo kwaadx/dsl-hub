@@ -4,11 +4,20 @@ import uuid
 from ..models.models import SchemaDef
 from ..middleware.error import HTTPException
 
-def list(db: Session) -> List[SchemaDef]:
+def list(db: Session, name: Optional[str] = None, version: Optional[str] = None, status: Optional[str] = None, page: int = 1, page_size: int = 100) -> List[SchemaDef]:
     """
-    List all schemas.
+    List schemas with optional filters and pagination.
     """
-    return db.query(SchemaDef).all()
+    q = db.query(SchemaDef)
+    if name:
+        q = q.filter(SchemaDef.name == name)
+    if version:
+        q = q.filter(SchemaDef.version == version)
+    if status:
+        q = q.filter(SchemaDef.status == status)
+    q = q.order_by(SchemaDef.created_at.desc())
+    offset = (page - 1) * page_size
+    return q.offset(offset).limit(page_size).all()
 
 def create(db: Session, schema_data: Dict[str, Any]) -> SchemaDef:
     """
