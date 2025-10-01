@@ -96,6 +96,9 @@ services:
     logging: *default-logging
     networks: [dsl-hub-net]
 
+#  # ==========================
+#  # Go Runtime (no HTTP)
+#  # ==========================
 #  runtime:
 #    build:
 #      context: ./apps/runtime
@@ -108,9 +111,31 @@ services:
 #      RUNTIME_INBOX: /queue/inbox
 #      RUNTIME_OUTBOX: /queue/outbox
 #      POLL_INTERVAL_MS: 500
+#      TZ: ${TZ:-Europe/Tirane}
 #    volumes:
 #      - runtime_queue:/queue
 #      - ./schemas:/schemas:ro
+#    restart: unless-stopped
+#    logging: *default-logging
+#    networks: [dsl-hub-net]
+#
+#  # ==========================
+#  # Python Drivers (stub)
+#  # ==========================
+#  drivers:
+#    build:
+#      context: ./apps/drivers
+#      dockerfile: Dockerfile
+#    container_name: dsl-hub-drivers
+#    env_file:
+#      - .env
+#      - .env.local
+#    environment:
+#      QUEUE_OUTBOX: /queue/outbox
+#      DRIVER_OUT: /queue/driver_out
+#      POLL_INTERVAL_MS: 500
+#    volumes:
+#      - runtime_queue:/queue
 #    restart: unless-stopped
 #    logging: *default-logging
 #    networks: [dsl-hub-net]
