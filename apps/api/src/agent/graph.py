@@ -92,10 +92,9 @@ class AgentRunner:
             runs.tick(s["run_id"], stage="search_existing", status="succeeded")
             db.commit()
             db.close()
+            await bus.publish(s["thread_id"], "run.stage", {"run_id": s["run_id"], "stage": "search_existing", "status": "succeeded"})
             if cand:
                 await bus.publish(s["thread_id"], "suggestion", cand)
-            else:
-                await bus.publish(s["thread_id"], "run.stage", {"run_id": s["run_id"], "stage": "search_existing", "status": "succeeded"})
             return s
 
         def decide_after_suggestion(s: AgentState) -> str:
@@ -125,6 +124,7 @@ class AgentRunner:
             db.commit()
             db.close()
             await bus.publish(s["thread_id"], "agent.msg", {"role":"assistant","format":"markdown","content":{"text":"Перевіряю узгодженість…"}})
+            await bus.publish(s["thread_id"], "agent.msg", {"role":"assistant","format":"json","content": s["notes"]})
             await bus.publish(s["thread_id"], "run.stage", {"run_id": s["run_id"], "stage": "self_check", "status": "succeeded"})
             return s
 
@@ -209,5 +209,20 @@ class AgentRunner:
         # Compile and execute
         app = graph.compile()
         # run the graph asynchronously
-        await app.ainvoke(state)  # we stream via SSE inside nodes
+        try:
+            await app.ainvoke(state)  # we stream via SSE inside nodes
+        except Exception as e:
+            # Ensure we mark the run as failed and emit a terminal event
+            db = self.session_factory()
+            try:
+                runs = RunsRepo(db)
+                try:
+                    runs.finish(run_id, status="failed")
+                    db.commit()
+                except Exception:
+                    db.rollback()
+            finally:
+                db.close()
+            await bus.publish(thread_id, "run.finished", {"run_id": run_id, "status": "failed", "error": str(e)})
+            return run_id
         return run_id

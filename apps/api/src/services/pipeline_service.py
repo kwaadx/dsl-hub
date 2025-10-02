@@ -1,4 +1,5 @@
 import uuid, json, hashlib
+from typing import Any, Dict, List
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from ..repositories.pipeline_repo import PipelineRepo
@@ -10,14 +11,14 @@ class PipelineService:
         self.db = db
         self.repo = PipelineRepo(db)
 
-    def list_for_flow(self, flow_id: str, published_only: bool=False):
+    def list_for_flow(self, flow_id: str, published_only: bool=False) -> List[Dict[str, Any]]:
         items = self.repo.list_for_flow(flow_id, published_only)
         return [{
             "id": str(p.id), "version": p.version, "status": p.status,
             "is_published": bool(p.is_published), "created_at": p.created_at.isoformat()
         } for p in items]
 
-    def get(self, pid: str):
+    def get(self, pid: str) -> Dict[str, Any]:
         p = self.repo.get(pid)
         return {
             "id": str(p.id), "flow_id": str(p.flow_id), "version": p.version,
@@ -32,10 +33,10 @@ class PipelineService:
         try:
             a,b,c = [int(x) for x in v.split(".")]
             return f"{a}.{b}.{c+1}"
-        except Exception:
+        except (ValueError, AttributeError):
             return "1.0.1"
 
-    def create_version(self, flow_id: str, content: dict, version: str | None = None):
+    def create_version(self, flow_id: str, content: Dict[str, Any], version: str | None = None) -> Pipeline:
         # pick active schema_def from channel
         channel = self.db.execute(select(SchemaChannel).where(SchemaChannel.name==settings.APP_SCHEMA_CHANNEL)).scalar_one_or_none()
         if not channel:
@@ -48,9 +49,9 @@ class PipelineService:
         pid = str(uuid.uuid4())
         canonical = json.dumps(content, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
         content_hash = hashlib.sha256(canonical).digest()
-        p = self.repo.create_version(pid, flow_id, schema_def_id, v, content, status="draft", is_published=False, schema_version=schema_ver, content_hash=content_hash)
+        p = self.repo.create_version(pipeline_id=pid, flow_id=flow_id, schema_def_id=schema_def_id, version=v, content=content, status="draft", is_published=False, schema_version=schema_ver, content_hash=content_hash)
         return p
 
-    def publish(self, pipeline_id: str):
+    def publish(self, pipeline_id: str) -> Dict[str, Any]:
         p = self.repo.publish(pipeline_id)
         return {"ok": True, "flow_id": str(p.flow_id), "version": p.version, "is_published": True}

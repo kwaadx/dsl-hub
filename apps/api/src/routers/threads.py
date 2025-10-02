@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from datetime import datetime
+import uuid
 from ..database import get_db
 from ..services.thread_service import ThreadService
 from ..services.message_service import MessageService
@@ -33,7 +34,7 @@ def list_messages(thread_id: str, limit: int = 50, before: str | None = None, db
 def add_message(thread_id: str, payload: MessageIn, db: Session = Depends(get_db)):
     svc = MessageService(db)
     try:
-        return svc.add(thread_id, payload.role, payload.content, payload.parent_id, payload.tool_name, payload.tool_result, payload.format or "text")
+        return svc.add(thread_id, payload.role, payload.content, payload.parent_id, payload.tool_name, payload.tool_result, fmt=payload.format or "text")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -43,7 +44,7 @@ def close_thread(thread_id: str, db: Session = Depends(get_db)):
     if not t:
         raise HTTPException(404, "Thread not found")
     # create minimal thread summary
-    ts = ThreadSummary(id=str(__import__('uuid').uuid4()), thread_id=thread_id, kind="short", content={"summary": "Thread closed"})
+    ts = ThreadSummary(id=str(uuid.uuid4()), thread_id=thread_id, kind="short", content={"summary": "Thread closed"})
     db.add(ts)
     # upsert active flow summary
     fs = db.execute(select(FlowSummary).where(FlowSummary.flow_id==t.flow_id, FlowSummary.is_active==True).limit(1)).scalar_one_or_none()
@@ -52,7 +53,7 @@ def close_thread(thread_id: str, db: Session = Depends(get_db)):
         fs.content = {"summary": "Updated by thread close"}
         fs.is_active = True
     else:
-        fs = FlowSummary(id=str(__import__('uuid').uuid4()), flow_id=t.flow_id, version=1, content={"summary": "Initial"}, is_active=True)
+        fs = FlowSummary(id=str(uuid.uuid4()), flow_id=t.flow_id, version=1, content={"summary": "Initial"}, is_active=True)
         db.add(fs)
     t.status = "SUCCESS"
     t.closed_at = datetime.utcnow()

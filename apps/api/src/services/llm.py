@@ -13,8 +13,10 @@ from ..config import settings
 try:
     # Import lazily; only required when provider is openai
     from openai import AsyncOpenAI
+    from openai import OpenAIError  # type: ignore
 except Exception:  # pragma: no cover
     AsyncOpenAI = None  # type: ignore
+    OpenAIError = Exception  # type: ignore
 
 
 def _ensure_json(text: str) -> dict:
@@ -31,7 +33,7 @@ def _ensure_json(text: str) -> dict:
             s = s.rsplit("```", 1)[0]
     try:
         return json.loads(s)
-    except Exception:
+    except json.JSONDecodeError:
         # Fallback minimal pipeline if parsing fails
         return {
             "name": "example-pipeline",
@@ -103,7 +105,7 @@ class LLMClient:
             )
             content = resp.choices[0].message.content or "{}"
             return _ensure_json(content)
-        except Exception:
+        except (asyncio.TimeoutError, OpenAIError):
             # graceful fallback
             return {
                 "name": "example-pipeline",
@@ -150,5 +152,5 @@ class LLMClient:
             if "risks" not in data:
                 data["risks"] = []
             return data
-        except Exception:
+        except (asyncio.TimeoutError, OpenAIError):
             return {"notes": ["Self-check failed (provider error)."], "risks": []}

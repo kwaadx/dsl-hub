@@ -1,6 +1,7 @@
 from typing import Optional, Dict, Any
 from sqlalchemy import func, cast, String
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 from ..database import SessionLocal
 from ..models import Pipeline
@@ -31,7 +32,7 @@ class SimilarityService:
             for p, s in q:  # may raise if similarity function missing; handled below
                 try:
                     s_val = float(s) if s is not None else 0.0
-                except Exception:
+                except (TypeError, ValueError):
                     s_val = 0.0
                 if best is None or s_val > best[1]:
                     best = (p, s_val)
@@ -39,7 +40,7 @@ class SimilarityService:
                 p, s_val = best
                 return {"pipeline_id": str(p.id), "version": p.version, "score": round(s_val, 4)}
             return None
-        except Exception:
+        except SQLAlchemyError:
             # pg_trgm or similarity() may not be available — fallback to no suggestion
             return None
         finally:

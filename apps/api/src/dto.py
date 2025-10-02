@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Any, List
+from typing import Optional, Any, List, Dict
 
 class CreateFlow(BaseModel):
     slug: str
@@ -24,7 +24,7 @@ class ThreadOut(BaseModel):
 class MessageIn(BaseModel):
     role: str
     content: Any
-    format: Optional[str] = "text"
+    format: str = "text"
     parent_id: Optional[str] = None
     tool_name: Optional[str] = None
     tool_result: Optional[Any] = None
@@ -35,7 +35,7 @@ class MessageOut(BaseModel):
 
 class AgentRunIn(BaseModel):
     user_message: Any
-    options: Optional[dict] = Field(default_factory=dict)
+    options: dict = Field(default_factory=dict)
 
 class AgentRunAck(BaseModel):
     run_id: str

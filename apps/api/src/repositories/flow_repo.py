@@ -20,8 +20,8 @@ class FlowRepo:
             out.append((f, bool(has_pub), active_ver))
         return out
 
-    def create(self, id, slug, name, meta=None):
-        f = Flow(id=id, slug=slug, name=name, meta=meta or {})
+    def create(self, flow_id, slug, name, meta=None):
+        f = Flow(id=flow_id, slug=slug, name=name, meta=meta or {})
         self.db.add(f)
         self.db.flush()
         return f

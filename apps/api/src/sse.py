@@ -40,7 +40,7 @@ class SSEBus:
                 # Drop oldest if full; minimal backpressure strategy
                 try:
                     _ = q.get_nowait()
-                except Exception:
+                except asyncio.QueueEmpty:
                     pass
                 q.put_nowait(payload)
         return state.cursor
@@ -82,7 +82,7 @@ async def sse_response(thread_id: str, ping_interval: int = 15, last_event_id: s
     if last_event_id:
         try:
             since = int(last_event_id)
-        except Exception:
+        except ValueError:
             since = None
 
     async def gen():

@@ -1,4 +1,5 @@
 from jsonschema import Draft7Validator
+from typing import Any, Dict, List
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from ..models import SchemaChannel, SchemaDef
@@ -10,18 +11,18 @@ class ValidationService:
     def __init__(self, db: Session):
         self.db = db
 
-    def _active_schema(self):
+    def _active_schema(self) -> SchemaDef:
         ch = self.db.execute(select(SchemaChannel).where(SchemaChannel.name==settings.APP_SCHEMA_CHANNEL)).scalar_one_or_none()
         if not ch:
             raise ValueError("No schema channel configured")
         sdef = self.db.get(SchemaDef, ch.active_schema_def_id)
         return sdef
 
-    def validate_pipeline(self, pipeline: dict):
+    def validate_pipeline(self, pipeline: Dict[str, Any]) -> List[Dict[str, Any]]:
         sdef = self._active_schema()
         schema = sdef.json
         v = Draft7Validator(schema)
-        issues = []
+        issues: List[Dict[str, Any]] = []
         for e in v.iter_errors(pipeline):
             code = getattr(e, "validator", "schema") or "schema"
             path = "/" + "/".join([str(x) for x in e.path])
@@ -32,18 +33,21 @@ class ValidationService:
                 "severity": severity,
                 "message": e.message
             })
-        # Domain rules: duplicate stage names
-        try:
-            stages = pipeline.get("stages", []) if isinstance(pipeline, dict) else []
+        # Domain rules: duplicate stage names (no exceptions needed)
+        stages = pipeline.get("stages", []) if isinstance(pipeline, dict) else []
+        if isinstance(stages, list):
             names = [s.get("name") for s in stages if isinstance(s, dict)]
-            dups = {n for n in names if n is not None and names.count(n) > 1}
-            for n in dups:
-                issues.append({
-                    "path": "/stages",
-                    "code": "duplicate_id",
-                    "severity": "error",
-                    "message": f"Duplicate stage name: {n}"
-                })
-        except Exception:
-            pass
+            seen: dict[str, int] = {}
+            for n in names:
+                if n is None:
+                    continue
+                seen[n] = seen.get(n, 0) + 1
+            for n, cnt in seen.items():
+                if cnt > 1:
+                    issues.append({
+                        "path": "/stages",
+                        "code": "duplicate_id",
+                        "severity": "error",
+                        "message": f"Duplicate stage name: {n}"
+                    })
         return issues

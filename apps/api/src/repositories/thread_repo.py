@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from ..models import Thread, ContextSnapshot, SchemaChannel, FlowSummary, Pipeline, SchemaDef
@@ -8,12 +9,14 @@ class ThreadRepo:
     def __init__(self, db: Session):
         self.db = db
 
-    def create(self, id, flow_id):
-        t = Thread(id=id, flow_id=flow_id)
+    def create(self, thread_id: str, flow_id: str) -> Thread:
+        t = Thread(id=thread_id, flow_id=flow_id)
         self.db.add(t); self.db.flush()
         # Context snapshot from active artifacts
         channel = self.db.execute(select(SchemaChannel).where(SchemaChannel.name==settings.APP_SCHEMA_CHANNEL)).scalar_one_or_none()
         schema_def_id = channel.active_schema_def_id if channel else None
+        if not schema_def_id:
+            raise ValueError("No schema channel configured")
 
         fs = self.db.execute(select(FlowSummary).where(FlowSummary.flow_id==flow_id, FlowSummary.is_active==True).limit(1)).scalar_one_or_none()
         pub = self.db.execute(select(Pipeline).where(Pipeline.flow_id==flow_id, Pipeline.is_published==True).limit(1)).scalar_one_or_none()
@@ -30,5 +33,5 @@ class ThreadRepo:
         self.db.flush()
         return t
 
-    def get(self, thread_id):
+    def get(self, thread_id: str) -> Optional[Thread]:
         return self.db.get(Thread, thread_id)

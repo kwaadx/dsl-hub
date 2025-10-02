@@ -9,12 +9,12 @@ class AppError(Exception):
         self.message = message
         self.details = details or []
 
-async def handle_app_error(request: Request, exc: AppError):
+async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(status_code=exc.status, content={
         "error": {"code": exc.code, "message": exc.message, "details": exc.details}
     })
 
-async def handle_http_error(request: Request, exc: FastHTTPException):
+async def handle_http_error(request: Request, exc: FastHTTPException) -> JSONResponse:
     # Map FastAPI HTTPException to unified error shape
     message = exc.detail if isinstance(exc.detail, str) else "HTTP error"
     code = "HTTP_ERROR"
@@ -22,7 +22,7 @@ async def handle_http_error(request: Request, exc: FastHTTPException):
         "error": {"code": code, "message": message, "details": []}
     })
 
-async def handle_generic_error(request: Request, exc: Exception):
+async def handle_generic_error(request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=500, content={
         "error": {"code": "INTERNAL", "message": str(exc), "details": []}
     })

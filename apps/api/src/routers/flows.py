@@ -4,7 +4,7 @@ from sqlalchemy import select
 from ..database import get_db
 from ..services.flow_service import FlowService
 from ..services.pipeline_service import PipelineService
-from ..dto import CreateFlow, FlowOut
+from ..dto import CreateFlow, FlowOut, ThreadOut
 from ..models import FlowSummary
 
 router = APIRouter(prefix="/flows", tags=["flows"])
@@ -19,7 +19,7 @@ def create_flow(payload: CreateFlow, db: Session = Depends(get_db)):
     svc = FlowService(db)
     return svc.create(payload.slug, payload.name)
 
-@router.post("/{flow_id}/threads", status_code=201)
+@router.post("/{flow_id}/threads", response_model=ThreadOut, status_code=201)
 def create_thread_for_flow(flow_id: str, db: Session = Depends(get_db)):
     from ..services.thread_service import ThreadService
     return ThreadService(db).create(flow_id)

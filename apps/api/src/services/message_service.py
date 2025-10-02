@@ -1,4 +1,5 @@
 import uuid
+from typing import Any, Optional, List, Dict
 from sqlalchemy.orm import Session
 from ..repositories.message_repo import MessageRepo
 
@@ -10,10 +11,19 @@ class MessageService:
         self.db = db
         self.repo = MessageRepo(db)
 
-    def add(self, thread_id: str, role: str, content, parent_id=None, tool_name=None, tool_result=None, format="text"):
+    def add(
+        self,
+        thread_id: str,
+        role: str,
+        content: Any,
+        parent_id: Optional[str] = None,
+        tool_name: Optional[str] = None,
+        tool_result: Optional[Any] = None,
+        fmt: str = "text",
+    ) -> Dict[str, str]:
         if role not in ALLOWED_ROLES:
             raise ValueError("Invalid role")
-        if format not in ALLOWED_FORMATS:
+        if fmt not in ALLOWED_FORMATS:
             raise ValueError("Invalid format")
         if role == "tool" and not tool_name:
             raise ValueError("tool_name required for role=tool")
@@ -24,15 +34,15 @@ class MessageService:
             if not parent or str(parent.thread_id) != thread_id:
                 raise ValueError("parent_id must belong to the same thread")
         mid = str(uuid.uuid4())
-        m = self.repo.add(mid, thread_id, role, content, parent_id, tool_name, tool_result, format)
+        m = self.repo.add(mid, thread_id, role, content, parent_id, tool_name, tool_result, fmt)
         return {"id": str(m.id), "created_at": m.created_at.isoformat()}
 
-    def list(self, thread_id: str, limit: int = 50, before: str | None = None):
+    def list(self, thread_id: str, limit: int = 50, before: Optional[str] = None) -> List[Dict[str, Any]]:
         from datetime import datetime
         from ..models import Message
         q = self.db.query(Message).filter(Message.thread_id == thread_id)
         if before:
-            ts = before
+            ts: str = before
             if isinstance(ts, str) and ts.endswith("Z"):
                 ts = ts.replace("Z", "+00:00")
             q = q.filter(Message.created_at < datetime.fromisoformat(ts))
