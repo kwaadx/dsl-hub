@@ -1,13 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from datetime import datetime
+from datetime import datetime, UTC
 import uuid
 from ..database import get_db
 from ..services.thread_service import ThreadService
 from ..services.message_service import MessageService
-from ..services.pipeline_service import PipelineService
-from ..dto import CreateThread, ThreadOut, MessageIn, MessageOut
+from ..dto import ThreadOut, MessageIn, MessageOut
 from ..models import Thread, ThreadSummary, FlowSummary
 
 router = APIRouter(prefix="/threads", tags=["threads"])
@@ -56,15 +55,12 @@ def close_thread(thread_id: str, db: Session = Depends(get_db)):
         fs = FlowSummary(id=str(uuid.uuid4()), flow_id=t.flow_id, version=1, content={"summary": "Initial"}, is_active=True)
         db.add(fs)
     t.status = "SUCCESS"
-    t.closed_at = datetime.utcnow()
+    t.closed_at = datetime.now(UTC)
     db.flush()
     return {"ok": True}
 
 @router.get("/{thread_id}/summaries")
 def get_thread_summaries(thread_id: str, db: Session = Depends(get_db)):
-    rows = db.execute(select(ThreadSummary).where(ThreadSummary.thread_id==thread_id).order_by(ThreadSummary.created_at.desc())).scalars().all()
-    return [{
-        "id": str(r.id), "kind": r.kind, "content": r.content,
-        "covering_from": r.covering_from.isoformat() if r.covering_from else None,
-        "covering_to": r.covering_to.isoformat() if r.covering_to else None
-    } for r in rows]
+    from ..repositories.thread_summary_repo import list_for_thread, payload as ts_payload
+    rows = list_for_thread(db, thread_id)
+    return [ts_payload(r) for r in rows]

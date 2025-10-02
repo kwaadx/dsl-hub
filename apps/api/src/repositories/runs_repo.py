@@ -1,14 +1,14 @@
 from sqlalchemy.orm import Session
 from ..models import GenerationRun, ValidationIssue
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, UTC
 
 class RunsRepo:
     def __init__(self, db: Session):
         self.db = db
 
     def start(self, run_id: str, flow_id: str, thread_id: str, stage: str, source: Dict[str, Any]) -> GenerationRun:
-        run = GenerationRun(id=run_id, flow_id=flow_id, thread_id=thread_id, stage=stage, status="running", source=source, started_at=datetime.utcnow())
+        run = GenerationRun(id=run_id, flow_id=flow_id, thread_id=thread_id, stage=stage, status="running", source=source, started_at=datetime.now(UTC))
         self.db.add(run); self.db.flush()
         return run
 
@@ -26,7 +26,7 @@ class RunsRepo:
     def finish(self, run_id: str, status: str = "succeeded") -> GenerationRun:
         run = self.db.get(GenerationRun, run_id)
         run.status = status
-        run.finished_at = datetime.utcnow()
+        run.finished_at = datetime.now(UTC)
         self.db.flush()
         return run
 

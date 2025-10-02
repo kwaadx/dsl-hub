@@ -15,12 +15,12 @@ class ValidationService:
         ch = self.db.execute(select(SchemaChannel).where(SchemaChannel.name==settings.APP_SCHEMA_CHANNEL)).scalar_one_or_none()
         if not ch:
             raise ValueError("No schema channel configured")
-        sdef = self.db.get(SchemaDef, ch.active_schema_def_id)
-        return sdef
+        schema_def = self.db.get(SchemaDef, ch.active_schema_def_id)
+        return schema_def
 
     def validate_pipeline(self, pipeline: Dict[str, Any]) -> List[Dict[str, Any]]:
-        sdef = self._active_schema()
-        schema = sdef.json
+        schema_def = self._active_schema()
+        schema = schema_def.json
         v = Draft7Validator(schema)
         issues: List[Dict[str, Any]] = []
         for e in v.iter_errors(pipeline):

@@ -21,6 +21,7 @@ app.add_exception_handler(Exception, handle_generic_error)
 def healthz():
     return {"status":"ok"}
 
+
 @app.get("/version")
 def version():
     return {"app":"dsl-hub","version":"0.1.0"}

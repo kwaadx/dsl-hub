@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
+from sqlalchemy import select
 from ..models import Pipeline
 
 class PipelineRepo:
@@ -8,10 +8,11 @@ class PipelineRepo:
         self.db = db
 
     def list_for_flow(self, flow_id: str, published_only: bool = False) -> List[Pipeline]:
-        q = self.db.query(Pipeline).filter(Pipeline.flow_id==flow_id)
+        stmt = select(Pipeline).where(Pipeline.flow_id == flow_id)
         if published_only:
-            q = q.filter(Pipeline.is_published==True)
-        return q.order_by(Pipeline.created_at.desc()).all()
+            stmt = stmt.where(Pipeline.is_published == True)
+        stmt = stmt.order_by(Pipeline.created_at.desc())
+        return list(self.db.execute(stmt).scalars().all())
 
     def get(self, pid: str) -> Pipeline:
         return self.db.get(Pipeline, pid)

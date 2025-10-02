@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 
 from ..config import settings
 
@@ -14,12 +14,12 @@ try:
     # Import lazily; only required when provider is openai
     from openai import AsyncOpenAI
     from openai import OpenAIError  # type: ignore
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     AsyncOpenAI = None  # type: ignore
     OpenAIError = Exception  # type: ignore
 
 
-def _ensure_json(text: str) -> dict:
+def _ensure_json(text: str) -> Dict:
     """Extract JSON object from a model output. Tolerates code fences."""
     s = text.strip()
     # strip code fences if present

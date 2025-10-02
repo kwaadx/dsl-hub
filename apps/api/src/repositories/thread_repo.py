@@ -1,8 +1,9 @@
 from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from ..models import Thread, ContextSnapshot, SchemaChannel, FlowSummary, Pipeline, SchemaDef
+from ..models import Thread, ContextSnapshot, SchemaChannel, Pipeline
 from ..config import settings
+from ..repositories.flow_summary_repo import get_active as get_active_flow_summary
 import uuid
 
 class ThreadRepo:
@@ -18,7 +19,7 @@ class ThreadRepo:
         if not schema_def_id:
             raise ValueError("No schema channel configured")
 
-        fs = self.db.execute(select(FlowSummary).where(FlowSummary.flow_id==flow_id, FlowSummary.is_active==True).limit(1)).scalar_one_or_none()
+        fs = get_active_flow_summary(self.db, flow_id)
         pub = self.db.execute(select(Pipeline).where(Pipeline.flow_id==flow_id, Pipeline.is_published==True).limit(1)).scalar_one_or_none()
 
         snap = ContextSnapshot(id=str(uuid.uuid4()),

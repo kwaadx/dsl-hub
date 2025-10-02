@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Any, List, Dict
+from typing import Optional, Any, List
 
 class CreateFlow(BaseModel):
     slug: str

@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, Body, Path, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import select
 
 from ..database import get_db
 from ..models import SchemaUpgradePlan, PipelineUpgradeRun, Pipeline, SchemaDef

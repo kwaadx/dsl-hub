@@ -1,10 +1,10 @@
-from sqlalchemy import Column, String, DateTime, Boolean, Integer, ForeignKey, JSON, LargeBinary
+from sqlalchemy import Column, String, DateTime, Boolean, Integer, ForeignKey, ARRAY, JSON, LargeBinary
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy import ARRAY
 import enum
 from .database import Base
+
 
 class ThreadStatus(str, enum.Enum):
     NEW = "NEW"
@@ -12,6 +12,7 @@ class ThreadStatus(str, enum.Enum):
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
     ARCHIVED = "ARCHIVED"
+
 
 class Flow(Base):
     __tablename__ = "flow"
@@ -30,6 +31,7 @@ class Flow(Base):
     generation_runs = relationship("GenerationRun", back_populates="flow")
     summary_runs = relationship("SummaryRun", back_populates="flow")
 
+
 class Thread(Base):
     __tablename__ = "thread"
 
@@ -37,7 +39,8 @@ class Thread(Base):
     flow_id = Column(UUID(as_uuid=False), ForeignKey("flow.id", ondelete="CASCADE"), nullable=False)
     status = Column(String, nullable=False, default=ThreadStatus.NEW.value)
     result_pipeline_id = Column(UUID(as_uuid=False), ForeignKey("pipeline.id", ondelete="SET NULL"), nullable=True)
-    context_snapshot_id = Column(UUID(as_uuid=False), ForeignKey("context_snapshot.id", ondelete="SET NULL"), nullable=True)
+    context_snapshot_id = Column(UUID(as_uuid=False), ForeignKey("context_snapshot.id", ondelete="SET NULL"),
+                                 nullable=True)
     archived = Column(Boolean, nullable=False, default=False)
     archived_at = Column(DateTime, nullable=True)
     started_at = Column(DateTime, server_default=func.now(), nullable=False)
@@ -52,6 +55,7 @@ class Thread(Base):
     thread_summaries = relationship("ThreadSummary", back_populates="thread")
     generation_runs = relationship("GenerationRun", back_populates="thread")
     summary_runs = relationship("SummaryRun", back_populates="thread")
+
 
 class Message(Base):
     __tablename__ = "message"
@@ -69,6 +73,7 @@ class Message(Base):
     thread = relationship("Thread", back_populates="messages")
     parent = relationship("Message", remote_side=[id], uselist=False)
 
+
 class SchemaDef(Base):
     __tablename__ = "schema_def"
 
@@ -84,9 +89,12 @@ class SchemaDef(Base):
     pipelines = relationship("Pipeline", back_populates="schema_def")
     schema_channels = relationship("SchemaChannel", back_populates="active_schema")
     context_snapshots = relationship("ContextSnapshot", back_populates="schema_def")
-    upgrade_plans_from = relationship("SchemaUpgradePlan", back_populates="from_schema_def", foreign_keys=lambda: [SchemaUpgradePlan.from_schema_def_id])
-    upgrade_plans_to = relationship("SchemaUpgradePlan", back_populates="to_schema_def", foreign_keys=lambda: [SchemaUpgradePlan.to_schema_def_id])
+    upgrade_plans_from = relationship("SchemaUpgradePlan", back_populates="from_schema_def",
+                                      foreign_keys=lambda: [SchemaUpgradePlan.from_schema_def_id])
+    upgrade_plans_to = relationship("SchemaUpgradePlan", back_populates="to_schema_def",
+                                    foreign_keys=lambda: [SchemaUpgradePlan.to_schema_def_id])
     compat_rules = relationship("CompatRule", back_populates="schema_def")
+
 
 class SchemaChannel(Base):
     __tablename__ = "schema_channel"
@@ -97,6 +105,7 @@ class SchemaChannel(Base):
     updated_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     active_schema = relationship("SchemaDef", back_populates="schema_channels")
+
 
 class Pipeline(Base):
     __tablename__ = "pipeline"
@@ -116,6 +125,7 @@ class Pipeline(Base):
     flow = relationship("Flow", back_populates="pipelines")
     schema_def = relationship("SchemaDef", back_populates="pipelines")
     generation_runs = relationship("GenerationRun", back_populates="pipeline")
+
 
 class GenerationRun(Base):
     __tablename__ = "generation_run"
@@ -139,6 +149,7 @@ class GenerationRun(Base):
     pipeline = relationship("Pipeline", back_populates="generation_runs")
     validation_issues = relationship("ValidationIssue", back_populates="generation_run", cascade="all, delete-orphan")
 
+
 class ValidationIssue(Base):
     __tablename__ = "validation_issue"
 
@@ -151,6 +162,7 @@ class ValidationIssue(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     generation_run = relationship("GenerationRun", back_populates="validation_issues")
+
 
 class FlowSummary(Base):
     __tablename__ = "flow_summary"
@@ -170,6 +182,7 @@ class FlowSummary(Base):
     summary_runs = relationship("SummaryRun", back_populates="flow_summary")
     context_snapshots = relationship("ContextSnapshot", back_populates="flow_summary")
 
+
 class ThreadSummary(Base):
     __tablename__ = "thread_summary"
 
@@ -183,6 +196,7 @@ class ThreadSummary(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     thread = relationship("Thread", back_populates="thread_summaries")
+
 
 class ContextSnapshot(Base):
     __tablename__ = "context_snapshot"
@@ -201,6 +215,7 @@ class ContextSnapshot(Base):
     schema_def = relationship("SchemaDef", back_populates="context_snapshots")
     flow_summary = relationship("FlowSummary", back_populates="context_snapshots")
     pipeline = relationship("Pipeline")
+
 
 class SummaryRun(Base):
     __tablename__ = "summary_run"
@@ -223,6 +238,7 @@ class SummaryRun(Base):
     thread = relationship("Thread", back_populates="summary_runs")
     flow_summary = relationship("FlowSummary", back_populates="summary_runs")
 
+
 class PromptTemplate(Base):
     __tablename__ = "prompt_template"
 
@@ -230,6 +246,7 @@ class PromptTemplate(Base):
     text = Column(String, nullable=False)
     meta = Column(JSON, nullable=False, default=dict)
     updated_at = Column(DateTime, server_default=func.now(), nullable=False)
+
 
 class SchemaUpgradePlan(Base):
     __tablename__ = "schema_upgrade_plan"
@@ -248,6 +265,7 @@ class SchemaUpgradePlan(Base):
     to_schema_def = relationship("SchemaDef", foreign_keys=[to_schema_def_id], back_populates="upgrade_plans_to")
     upgrade_runs = relationship("PipelineUpgradeRun", back_populates="upgrade_plan")
 
+
 class PipelineUpgradeRun(Base):
     __tablename__ = "pipeline_upgrade_run"
 
@@ -255,7 +273,8 @@ class PipelineUpgradeRun(Base):
     pipeline_id = Column(UUID(as_uuid=False), ForeignKey("pipeline.id", ondelete="CASCADE"), nullable=False)
     from_schema_def_id = Column(UUID(as_uuid=False), ForeignKey("schema_def.id", ondelete="RESTRICT"), nullable=False)
     to_schema_def_id = Column(UUID(as_uuid=False), ForeignKey("schema_def.id", ondelete="RESTRICT"), nullable=False)
-    upgrade_plan_id = Column(UUID(as_uuid=False), ForeignKey("schema_upgrade_plan.id", ondelete="SET NULL"), nullable=True)
+    upgrade_plan_id = Column(UUID(as_uuid=False), ForeignKey("schema_upgrade_plan.id", ondelete="SET NULL"),
+                             nullable=True)
     status = Column(String, nullable=False, default="queued")
     mode = Column(String, nullable=False, default="auto")
     diff = Column(JSON, nullable=True)
@@ -269,6 +288,7 @@ class PipelineUpgradeRun(Base):
     to_schema_def = relationship("SchemaDef", foreign_keys=[to_schema_def_id])
     upgrade_plan = relationship("SchemaUpgradePlan", back_populates="upgrade_runs")
 
+
 class CompatRule(Base):
     __tablename__ = "compat_rule"
 
@@ -279,6 +299,7 @@ class CompatRule(Base):
     updated_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     schema_def = relationship("SchemaDef", back_populates="compat_rules")
+
 
 class AgentLog(Base):
     __tablename__ = "agent_log"

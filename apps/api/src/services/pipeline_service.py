@@ -27,7 +27,8 @@ class PipelineService:
             "content": p.content
         }
 
-    def _bump_patch(self, v: str | None) -> str:
+    @staticmethod
+    def _bump_patch(v: str | None) -> str:
         if not v:
             return "1.0.0"
         try:
@@ -42,6 +43,8 @@ class PipelineService:
         if not channel:
             raise ValueError("No schema channel configured")
         schema_def_id = channel.active_schema_def_id
+        if not schema_def_id:
+            raise ValueError("No active schema definition in the configured channel")
         schema_ver = self.db.get(SchemaDef, schema_def_id).version
         # derive next version (patch) from latest for this flow
         last = self.db.query(Pipeline).filter(Pipeline.flow_id==flow_id).order_by(Pipeline.created_at.desc()).first()

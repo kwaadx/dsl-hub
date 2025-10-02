@@ -1,7 +1,6 @@
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import Response
-from sqlalchemy.orm import Session
-from ..database import get_db, SessionLocal
+from ..database import SessionLocal
 from ..dto import AgentRunIn, AgentRunAck
 from ..sse import sse_response, bus
 from ..agent.graph import AgentRunner
@@ -31,8 +30,6 @@ async def agent_run(thread_id: str, payload: AgentRunIn) -> AgentRunAck:
     return AgentRunAck(run_id=run_id, status="queued")
 
 async def _infer_flow(thread_id: str) -> str:
-    # minimal lookup
-    from sqlalchemy import select
     from ..models import Thread
     db = SessionLocal()
     try:

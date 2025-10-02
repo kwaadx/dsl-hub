@@ -1,6 +1,9 @@
+import { http } from '@/core/http/http';
+
 export interface Flow {
   id: string;
   name: string;
+  slug?: string;
 }
 
 export interface Paged<T> {
@@ -10,6 +13,8 @@ export interface Paged<T> {
   totalItems: number;
   totalPages: number;
 }
+
+const USE_FAKE = ((import.meta as any).env?.VITE_USE_FAKE_API ?? 'true') === 'true';
 
 /** Simple UUID (for newly created items). */
 function uuid(): string {
@@ -119,14 +124,18 @@ export function __getFakeFlows(): Flow[] {
 
 /** Fetch all flows. */
 export async function fetchFlowsApi(signal?: AbortSignal): Promise<Flow[]> {
+  if (!USE_FAKE) {
+    return http<Flow[]>({ method: 'GET', path: '/api/flows', signal });
+  }
   await delay(300 + Math.floor(Math.random() * 300), signal);
-
-  // throw new Error('Test error in fetchFlowsApi');
   return DB.map((f) => ({...f}));
 }
 
 /** Fetch single flow by id. */
 export async function fetchFlowByIdApi(id: string, signal?: AbortSignal): Promise<Flow> {
+  if (!USE_FAKE) {
+    return http<Flow>({ method: 'GET', path: `/api/flows/${id}`, signal });
+  }
   await delay(200 + Math.floor(Math.random() * 200), signal);
   const found = DB.find((f) => f.id === id);
   if (!found) {
@@ -137,10 +146,11 @@ export async function fetchFlowByIdApi(id: string, signal?: AbortSignal): Promis
   return {...found};
 }
 
-/** Create flow (persist to LS). */
-export async function createFlowApi(payload: {
-  name: string
-}, signal?: AbortSignal): Promise<Flow> {
+/** Create flow. */
+export async function createFlowApi(payload: { name: string; slug?: string }, signal?: AbortSignal): Promise<Flow> {
+  if (!USE_FAKE) {
+    return http<Flow, typeof payload>({ method: 'POST', path: '/api/flows', body: payload, signal });
+  }
   await delay(200 + Math.floor(Math.random() * 300), signal);
   const item: Flow = {id: uuid(), name: payload.name};
   DB.unshift(item);
@@ -148,8 +158,11 @@ export async function createFlowApi(payload: {
   return {...item};
 }
 
-/** Update flow (persist to LS). */
+/** Update flow. */
 export async function updateFlowApi(id: string, patch: Partial<Flow>, signal?: AbortSignal): Promise<Flow> {
+  if (!USE_FAKE) {
+    return http<Flow, Partial<Flow>>({ method: 'PATCH', path: `/api/flows/${id}`, body: patch, signal });
+  }
   await delay(200 + Math.floor(Math.random() * 300), signal);
   const idx = DB.findIndex((f) => f.id === id);
   if (idx === -1) {
@@ -162,8 +175,12 @@ export async function updateFlowApi(id: string, patch: Partial<Flow>, signal?: A
   return {...DB[idx]};
 }
 
-/** Delete flow (persist to LS). */
+/** Delete flow. */
 export async function deleteFlowApi(id: string, signal?: AbortSignal): Promise<void> {
+  if (!USE_FAKE) {
+    await http<void>({ method: 'DELETE', path: `/api/flows/${id}`, signal });
+    return;
+  }
   await delay(150 + Math.floor(Math.random() * 200), signal);
   const idx = DB.findIndex((f) => f.id === id);
   if (idx !== -1) {
@@ -172,12 +189,16 @@ export async function deleteFlowApi(id: string, signal?: AbortSignal): Promise<v
   }
 }
 
-/** Paged fetch with optional search (persisted DB). */
+/** Paged fetch with optional search. */
 export async function fetchFlowsPagedApi(
   params: { page: number; pageSize?: number; q?: string },
   signal?: AbortSignal
 ): Promise<Paged<Flow>> {
   const {page, pageSize = 5, q = ''} = params;
+  if (!USE_FAKE) {
+    const items = await http<Flow[]>({ method: 'GET', path: '/api/flows', query: { page, pageSize, q }, signal });
+    return { items, page, pageSize, totalItems: 0, totalPages: 1 };
+  }
   await delay(250 + Math.floor(Math.random() * 250), signal);
 
   const needle = q.trim().toLowerCase();

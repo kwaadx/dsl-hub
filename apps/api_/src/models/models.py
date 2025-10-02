@@ -4,7 +4,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import ARRAY
 import enum
-from .database import Base
+from database import Base
 
 class ThreadStatus(str, enum.Enum):
     NEW = "NEW"

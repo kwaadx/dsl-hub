@@ -1,4 +1,4 @@
-import asyncio, json, time
+import asyncio, time
 from typing import Dict, List, Any, Tuple
 from sse_starlette.sse import EventSourceResponse
 
@@ -37,7 +37,7 @@ class SSEBus:
             try:
                 q.put_nowait(payload)
             except asyncio.QueueFull:
-                # Drop oldest if full; minimal backpressure strategy
+                # Drop the oldest if full; minimal backpressure strategy
                 try:
                     _ = q.get_nowait()
                 except asyncio.QueueEmpty:
@@ -74,6 +74,19 @@ class SSEBus:
 
 bus = SSEBus()
 
+
+def _to_sse_message(item: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize internal bus item to SSE message payload.
+    Keeps runtime behavior identical while removing duplication.
+    """
+    data = item["data"]
+    ts = item["ts"]
+    if isinstance(data, dict):
+        payload = {**data, "ts": ts}
+    else:
+        payload = {"value": data, "ts": ts}
+    return {"event": item["type"], "id": str(item["cursor"]), "data": payload}
+
 async def sse_response(thread_id: str, ping_interval: int = 15, last_event_id: str | None = None):
     # subscribe first
     q, _ = await bus.subscribe(thread_id)
@@ -92,12 +105,7 @@ async def sse_response(thread_id: str, ping_interval: int = 15, last_event_id: s
                 replay = await bus.replay(thread_id, since)
                 if replay:
                     for item in replay:
-                        data = item["data"]
-                        if isinstance(data, dict):
-                            data = {**data, "ts": item["ts"]}
-                        else:
-                            data = {"value": data, "ts": item["ts"]}
-                        yield {"event": item["type"], "id": str(item["cursor"]), "data": data}
+                        yield _to_sse_message(item)
             # initial keep-alive
             yield {"event": "ping", "data": {"ok": True}}
             while True:
@@ -106,12 +114,7 @@ async def sse_response(thread_id: str, ping_interval: int = 15, last_event_id: s
                 except asyncio.TimeoutError:
                     yield {"event": "ping", "data": {"ok": True}}
                     continue
-                data = item["data"]
-                if isinstance(data, dict):
-                    data = {**data, "ts": item["ts"]}
-                else:
-                    data = {"value": data, "ts": item["ts"]}
-                yield {"event": item["type"], "id": str(item["cursor"]), "data": data}
+                yield _to_sse_message(item)
         finally:
             await bus.unsubscribe(thread_id, q)
 
