@@ -8,7 +8,7 @@ router = APIRouter(prefix="/pipelines", tags=["pipelines"])
 @router.get("/by-flow/{flow_id}")
 def list_pipelines(flow_id: str, published: int | None = None, db: Session = Depends(get_db)):
     svc = PipelineService(db)
-    return svc.list_for_flow(flow_id, published_only=bool(published))
+    return svc.list_for_flow(flow_id, published=published)
 
 @router.get("/{pipeline_id}")
 def get_pipeline(pipeline_id: str, db: Session = Depends(get_db)):

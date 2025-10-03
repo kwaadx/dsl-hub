@@ -1,16 +1,23 @@
 from fastapi import FastAPI
+from fastapi.responses import Response
 from .routers import flows, threads, pipelines, summaries, schemas, agent
 from .middleware.idempotency import IdempotencyMiddleware
+from .middleware.limits import SizeLimitMiddleware
+from .middleware.metrics import MetricsMiddleware
 from .middleware.error import AppError, handle_app_error, handle_http_error, handle_generic_error
 from fastapi import HTTPException as FastHTTPException
+from .config import settings
+from .metrics import prometheus_body
 
 # Optional routers imported lazily to avoid circulars
 from .routers import upgrades
 
-app = FastAPI(title="DSL Hub Backend", version="0.1.0")
+app = FastAPI(title="DSL Hub Backend", version=settings.APP_VERSION)
 
 # Middlewares
 app.add_middleware(IdempotencyMiddleware)
+app.add_middleware(SizeLimitMiddleware)
+app.add_middleware(MetricsMiddleware)
 
 # Error handlers (unified error shape)
 app.add_exception_handler(AppError, handle_app_error)
@@ -24,7 +31,12 @@ def healthz():
 
 @app.get("/version")
 def version():
-    return {"app":"dsl-hub","version":"0.1.0"}
+    return {"app":"dsl-hub","version": settings.APP_VERSION}
+
+@app.get("/metrics")
+def metrics():
+    body, ctype = prometheus_body()
+    return Response(content=body, media_type=ctype)
 
 # Routers
 app.include_router(flows.router)

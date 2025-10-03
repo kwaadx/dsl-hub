@@ -1,5 +1,5 @@
 from typing import Any, Dict, List
-from fastapi import APIRouter, Depends, Body, Path
+from fastapi import APIRouter, Depends, Body, Path, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -14,7 +14,11 @@ def list_channels(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     for r in rows:
         sd = db.get(SchemaDef, r.active_schema_def_id)
-        out.append({"name": r.name, "active_schema_def_id": str(r.active_schema_def_id), "def": {"id": str(sd.id), "name": sd.name, "version": sd.version}})
+        if not sd:
+            # Guard against dangling FK; return minimal data
+            out.append({"name": r.name, "active_schema_def_id": str(r.active_schema_def_id), "def": None})
+        else:
+            out.append({"name": r.name, "active_schema_def_id": str(r.active_schema_def_id), "def": {"id": str(sd.id), "name": sd.name, "version": sd.version}})
     return out
 
 class ActivateChannelIn(BaseModel):
@@ -22,14 +26,16 @@ class ActivateChannelIn(BaseModel):
 
 @router.post("/channels/{name}")
 def activate_channel(name: str = Path(...), body: ActivateChannelIn = Body(...), db: Session = Depends(get_db)) -> Dict[str, Any]:
+    # Validate target schema_def exists before changing channel
+    sd = db.get(SchemaDef, body.schema_def_id)
+    if not sd:
+        raise HTTPException(status_code=400, detail="Invalid schema_def_id")
     ch = db.execute(select(SchemaChannel).where(SchemaChannel.name==name)).scalar_one_or_none()
     if not ch:
         # create channel if absent
         ch = SchemaChannel(name=name, active_schema_def_id=body.schema_def_id)
         db.add(ch)
-        db.flush()
     else:
         ch.active_schema_def_id = body.schema_def_id
-        db.flush()
-    sd = db.get(SchemaDef, body.schema_def_id)
+    db.flush()
     return {"name": name, "active_schema_def_id": body.schema_def_id, "def": {"id": str(sd.id), "name": sd.name, "version": sd.version}}

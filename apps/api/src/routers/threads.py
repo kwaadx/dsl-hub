@@ -7,7 +7,7 @@ from ..database import get_db
 from ..services.thread_service import ThreadService
 from ..services.message_service import MessageService
 from ..dto import ThreadOut, MessageIn, MessageOut
-from ..models import Thread, ThreadSummary, FlowSummary
+from ..models import Thread, ThreadSummary, FlowSummary, Message
 
 router = APIRouter(prefix="/threads", tags=["threads"])
 
@@ -38,26 +38,28 @@ def add_message(thread_id: str, payload: MessageIn, db: Session = Depends(get_db
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/{thread_id}/close")
-def close_thread(thread_id: str, db: Session = Depends(get_db)):
+async def close_thread(thread_id: str, db: Session = Depends(get_db)):
+    from ..services.summary_service import SummaryService
     t = db.get(Thread, thread_id)
     if not t:
         raise HTTPException(404, "Thread not found")
-    # create minimal thread summary
-    ts = ThreadSummary(id=str(uuid.uuid4()), thread_id=thread_id, kind="short", content={"summary": "Thread closed"})
-    db.add(ts)
-    # upsert active flow summary
-    fs = db.execute(select(FlowSummary).where(FlowSummary.flow_id==t.flow_id, FlowSummary.is_active==True).limit(1)).scalar_one_or_none()
-    if fs:
-        fs.version = (fs.version or 0) + 1
-        fs.content = {"summary": "Updated by thread close"}
-        fs.is_active = True
-    else:
-        fs = FlowSummary(id=str(uuid.uuid4()), flow_id=t.flow_id, version=1, content={"summary": "Initial"}, is_active=True)
-        db.add(fs)
+    svc = SummaryService(db)
+    # Generate thread summary (async LLM call)
+    ts = await svc.run_thread_summary(thread_id)
+    # Determine last message id for flow summary linking
+    from sqlalchemy import select as _select
+    last_msg = db.execute(
+        _select(Message).where(Message.thread_id == thread_id).order_by(Message.created_at.desc()).limit(1)
+    ).scalar_one_or_none()
+    last_message_id = str(last_msg.id) if last_msg else None
+    # Upsert active flow summary and ensure single active
+    fs = svc.upsert_flow_summary(str(t.flow_id), last_message_id=last_message_id, new_content={"summary": ts.content.get("summary", "")})
+    svc.ensure_single_active(str(t.flow_id), str(fs.id))
+    # Close thread
     t.status = "SUCCESS"
     t.closed_at = datetime.now(UTC)
     db.flush()
-    return {"ok": True}
+    return {"ok": True, "thread_id": thread_id, "thread_summary_id": str(ts.id), "flow_summary": {"id": str(fs.id), "version": fs.version}}
 
 @router.get("/{thread_id}/summaries")
 def get_thread_summaries(thread_id: str, db: Session = Depends(get_db)):

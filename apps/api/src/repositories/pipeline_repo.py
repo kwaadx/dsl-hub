@@ -7,10 +7,12 @@ class PipelineRepo:
     def __init__(self, db: Session):
         self.db = db
 
-    def list_for_flow(self, flow_id: str, published_only: bool = False) -> List[Pipeline]:
+    def list_for_flow(self, flow_id: str, published: Optional[bool] = None) -> List[Pipeline]:
         stmt = select(Pipeline).where(Pipeline.flow_id == flow_id)
-        if published_only:
+        if published is True:
             stmt = stmt.where(Pipeline.is_published == True)
+        elif published is False:
+            stmt = stmt.where(Pipeline.is_published == False)
         stmt = stmt.order_by(Pipeline.created_at.desc())
         return list(self.db.execute(stmt).scalars().all())
 
@@ -45,8 +47,19 @@ class PipelineRepo:
 
     def publish(self, pid: str) -> Pipeline:
         p = self.get(pid)
+        # Lock all pipelines of the same flow to avoid concurrent publish races
+        _ = (
+            self.db.query(Pipeline)
+            .filter(Pipeline.flow_id == p.flow_id)
+            .with_for_update()
+            .all()
+        )
         # unpublish others
-        self.db.query(Pipeline).filter(Pipeline.flow_id==p.flow_id, Pipeline.id!=pid, Pipeline.is_published==True).update({"is_published": False, "status":"draft"})
+        self.db.query(Pipeline).filter(
+            Pipeline.flow_id == p.flow_id,
+            Pipeline.id != pid,
+            Pipeline.is_published == True,
+        ).update({"is_published": False, "status": "draft"})
         p.is_published = True
         p.status = "published"
         self.db.flush()

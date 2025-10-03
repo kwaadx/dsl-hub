@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     APP_SCHEMA_CHANNEL: str = "stable"
     SIMILARITY_THRESHOLD: float = 0.75
     SSE_PING_INTERVAL: int = 15
+    APP_VERSION: str = Field(default="0.1.0", description="Application version reported by /version")
+    MAX_JSON_SIZE: int = Field(default=1048576, description="Max JSON request body size in bytes")
 
     # LLM provider config
     LLM_PROVIDER: str = Field(default="mock", description="LLM provider: 'mock' or 'openai'")

@@ -25,7 +25,7 @@ def create_thread_for_flow(flow_id: str, db: Session = Depends(get_db)):
 
 @router.get("/{flow_id}/pipelines")
 def list_flow_pipelines(flow_id: str, published: int | None = None, db: Session = Depends(get_db)):
-    return PipelineService(db).list_for_flow(flow_id, published_only=bool(published))
+    return PipelineService(db).list_for_flow(flow_id, published=published)
 
 @router.get("/{flow_id}/summary/active")
 def get_active_flow_summary(flow_id: str, db: Session = Depends(get_db)):

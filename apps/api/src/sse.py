@@ -3,6 +3,7 @@ from typing import Dict, List, Any, Tuple
 from sse_starlette.sse import EventSourceResponse
 
 from collections import deque
+from .metrics import SSE_EVENTS, SSE_CONNECTIONS
 
 class _StreamState:
     __slots__ = ("cursor", "subscribers", "buffer")
@@ -43,12 +44,20 @@ class SSEBus:
                 except asyncio.QueueEmpty:
                     pass
                 q.put_nowait(payload)
+        try:
+            SSE_EVENTS.labels(event=event_type).inc()
+        except Exception:
+            pass
         return state.cursor
 
     async def subscribe(self, key: str) -> Tuple[asyncio.Queue, int]:
         state = await self._get_state(key)
         q: asyncio.Queue = asyncio.Queue(maxsize=256)
         state.subscribers.append(q)
+        try:
+            SSE_CONNECTIONS.labels(action="open").inc()
+        except Exception:
+            pass
         return q, state.cursor
 
     async def can_replay(self, key: str, since_cursor: int) -> bool:
@@ -71,6 +80,10 @@ class SSEBus:
         state = await self._get_state(key)
         if q in state.subscribers:
             state.subscribers.remove(q)
+        try:
+            SSE_CONNECTIONS.labels(action="close").inc()
+        except Exception:
+            pass
 
 bus = SSEBus()
 

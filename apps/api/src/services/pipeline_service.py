@@ -11,8 +11,10 @@ class PipelineService:
         self.db = db
         self.repo = PipelineRepo(db)
 
-    def list_for_flow(self, flow_id: str, published_only: bool=False) -> List[Dict[str, Any]]:
-        items = self.repo.list_for_flow(flow_id, published_only)
+    def list_for_flow(self, flow_id: str, published: int | None = None) -> List[Dict[str, Any]]:
+        # Interpret tri-state query param: None → all, 1 → only published, 0 → only unpublished
+        pub_filter = True if published == 1 else False if published == 0 else None
+        items = self.repo.list_for_flow(flow_id, pub_filter)
         return [{
             "id": str(p.id), "version": p.version, "status": p.status,
             "is_published": bool(p.is_published), "created_at": p.created_at.isoformat()
@@ -24,6 +26,7 @@ class PipelineService:
             "id": str(p.id), "flow_id": str(p.flow_id), "version": p.version,
             "status": p.status, "is_published": bool(p.is_published),
             "schema_version": p.schema_version, "schema_def_id": str(p.schema_def_id) if p.schema_def_id else None,
+            "created_at": p.created_at.isoformat(),
             "content": p.content
         }
 
@@ -56,5 +59,15 @@ class PipelineService:
         return p
 
     def publish(self, pipeline_id: str) -> Dict[str, Any]:
+        # Perform publish under transaction (handled by get_db). Repo locks rows to avoid races.
         p = self.repo.publish(pipeline_id)
+        # Conflict detection: ensure exactly one published for the flow
+        from sqlalchemy import select, func
+        from fastapi import HTTPException
+        cnt = self.db.execute(
+            select(func.count()).select_from(Pipeline).where(Pipeline.flow_id == p.flow_id, Pipeline.is_published == True)
+        ).scalar_one()
+        if cnt and int(cnt) > 1:
+            # Let the middleware rollback the transaction
+            raise HTTPException(status_code=409, detail="Publish conflict: multiple published versions for this flow")
         return {"ok": True, "flow_id": str(p.flow_id), "version": p.version, "is_published": True}
