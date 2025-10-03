@@ -1,16 +1,3 @@
-from __future__ import annotations
-
-from alembic import op
-
-# revision identifiers, used by Alembic.
-revision = "20251001_00_init"
-down_revision = "b01d1001e001"
-branch_labels = None
-depends_on = None
-
-
-def upgrade() -> None:
-    sql = '''
 -- =========================================================
 -- DSL-Hub Authoring DB Schema (MVP+)
 -- PostgreSQL 17+
@@ -200,6 +187,8 @@ create unique index if not exists pipeline_one_published_per_flow
     on pipeline (flow_id) where is_published = true;
 create index if not exists pipeline_flow_idx on pipeline (flow_id);
 create index if not exists pipeline_created_idx on pipeline (created_at);
+create index if not exists idx_pipeline_flow_created_at
+    on pipeline (flow_id, created_at desc);
 create index if not exists pipeline_schema_def_idx on pipeline (schema_def_id);
 create index if not exists pipeline_content_gin on pipeline using gin (content jsonb_path_ops);
 create index if not exists pipeline_content_text_trgm
@@ -726,10 +715,3 @@ create or replace view flow_active_pipeline as
 select *
 from pipeline
 where is_published = true;
-'''
-    op.execute(sql)
-
-
-def downgrade() -> None:
-    # Irreversible migration (schema bootstrap). No-op.
-    pass

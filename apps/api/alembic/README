@@ -1,1 +1,43 @@
-Generic single-database configuration.
+DSL Hub Alembic Configuration
+
+This directory contains the Alembic migration setup for the API service. Migrations in this project are SQL-first: the Python migration scripts are thin wrappers that execute SQL files stored alongside the scripts.
+
+Conventions
+- Location for SQL: apps/api/alembic/versions/sql
+- File naming: two files per migration
+  - {revision}_{slug}_upgrade.sql
+  - {revision}_{slug}_downgrade.sql
+  A fallback without the slug is also supported by the template:
+  - {revision}_upgrade.sql and {revision}_downgrade.sql
+- Revision script: apps/api/alembic/versions/{revision}_{slug}.py reads and executes the SQL files above.
+
+Creating a new migration
+1) Generate a revision:
+   alembic revision -m "short message here"
+
+   This will create a new Python script under versions/ using the custom template.
+
+2) Add the SQL files with matching names under versions/sql/:
+   - versions/sql/{revision}_{slug}_upgrade.sql
+   - versions/sql/{revision}_{slug}_downgrade.sql
+
+   The slug is derived from the message (lowercased, spaces and punctuation normalized to underscores). If you prefer, you may omit the slug in the SQL filenames and use:
+   - versions/sql/{revision}_upgrade.sql
+   - versions/sql/{revision}_downgrade.sql
+
+3) Apply migrations:
+   - Upgrade to head: alembic upgrade head
+   - Downgrade one step: alembic downgrade -1
+
+Database URL and schema
+- Alembic gets the database URL from the application settings (src.config.settings.DATABASE_URL). .env and .env.local are respected by the app configuration.
+- Optional schema selection: you can append ?schema=your_schema to DATABASE_URL. The env.py will:
+  - Set search_path to the provided schema for all connections used by migrations.
+  - Place the alembic_version table in that schema.
+
+Autogenerate
+- Autogenerate is not used in this project because the schema is managed via explicit SQL. target_metadata is left as None in env.py.
+
+Notes
+- Migrations are applied automatically on API start (alembic upgrade head) in local Docker compose.
+- Keep upgrade and downgrade SQL in sync. Downgrades should fully revert the upgrade changes.

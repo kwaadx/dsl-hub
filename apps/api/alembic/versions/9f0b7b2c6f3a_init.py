@@ -1,38 +1,16 @@
-"""${message}
-
-Revision ID: ${up_revision}
-Revises: ${down_revision | comma,n}
-Create Date: ${create_date}
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = ${repr(up_revision)}
-down_revision = ${repr(down_revision)}
-branch_labels = ${repr(branch_labels)}
-depends_on = ${repr(depends_on)}
+revision = "9f0b7b2c6f3a"
+down_revision = None
+branch_labels = None
+depends_on = None
 
-## Compute a safe slug from the message at generation time
-<%
-import re
-
-def make_slug(msg):
-    if not msg:
-        return "migration"
-    slug = re.sub(r"\s+", "_", msg.strip().lower())
-    slug = re.sub(r"[^a-z0-9_]+", "_", slug)
-    slug = re.sub(r"_+", "_", slug).strip("_")
-    return slug or "migration"
-
-safe_slug = make_slug(message)
-%>
-
-# Persist the resolved slug in the generated script
-slug = ${repr(safe_slug)}
+# Persisted slug matching the SQL filenames
+slug = "init"
 
 
 def _read_sql(kind: str) -> str:
