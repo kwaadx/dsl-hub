@@ -61,7 +61,7 @@ services:
     ports:
       - "${API_PORT:-8000}:${API_PORT:-8000}"
     command: >
-      sh -c "python -m uvicorn src.main:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-8000} --reload"
+      sh -c "alembic upgrade head && python seed.py && python -m uvicorn src.main:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-8000} --reload"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:${API_PORT:-8000}/healthz || exit 1"]
       <<: *health-http
@@ -92,6 +92,23 @@ services:
     command: >
       sh -c "npm ci --include=dev &&
              npm run dev -- --host ${WEB_HOST:-0.0.0.0} --port ${WEB_PORT:-3000}"
+    restart: unless-stopped
+    logging: *default-logging
+    networks: [dsl-hub-net]
+
+  # ======================
+  # Dozzle Logs Viewer
+  # ======================
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dsl-hub-dozzle
+    env_file:
+      - .env
+      - .env.local
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - 8080:8080
     restart: unless-stopped
     logging: *default-logging
     networks: [dsl-hub-net]
