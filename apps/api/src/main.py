@@ -1,13 +1,16 @@
 from fastapi import FastAPI
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from .routers import flows, threads, pipelines, summaries, schemas, agent
 from .middleware.idempotency import IdempotencyMiddleware
 from .middleware.limits import SizeLimitMiddleware
 from .middleware.metrics import MetricsMiddleware
+from .middleware.auth import AuthMiddleware
 from .middleware.error import AppError, handle_app_error, handle_http_error, handle_generic_error
 from fastapi import HTTPException as FastHTTPException
 from .config import settings
 from .metrics import prometheus_body
+from sqlalchemy import text
 
 # Optional routers imported lazily to avoid circulars
 from .routers import upgrades
@@ -15,6 +18,15 @@ from .routers import upgrades
 app = FastAPI(title="DSL Hub Backend", version=settings.APP_VERSION)
 
 # Middlewares
+# CORS comes first so that preflight requests are handled early
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "Accept", "X-Requested-With", "Last-Event-ID"],
+)
+app.add_middleware(AuthMiddleware)
 app.add_middleware(IdempotencyMiddleware)
 app.add_middleware(SizeLimitMiddleware)
 app.add_middleware(MetricsMiddleware)
@@ -26,7 +38,17 @@ app.add_exception_handler(Exception, handle_generic_error)
 
 @app.get("/healthz")
 def healthz():
-    return {"status":"ok"}
+    # Probe database connectivity; return 200 if OK, 503 if DB unavailable
+    try:
+        from .database import SessionLocal
+        db = SessionLocal()
+        try:
+            db.execute(text("SELECT 1"))
+        finally:
+            db.close()
+        return {"status": "ok"}
+    except Exception as e:
+        return JSONResponse(status_code=503, content={"status": "degraded", "db": "unhealthy", "error": str(e)})
 
 
 @app.get("/version")

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
-from prometheus_client import Counter, Histogram, CONTENT_TYPE_LATEST, generate_latest
+from prometheus_client import Counter, Histogram, Gauge, CONTENT_TYPE_LATEST, generate_latest
 
 # HTTP metrics
 HTTP_REQUESTS = Counter(
@@ -18,6 +18,9 @@ SSE_EVENTS = Counter(
 SSE_CONNECTIONS = Counter(
     "sse_connections_total", "SSE connections open/close", ["action"]
 )
+SSE_SESSION_SECONDS = Histogram(
+    "sse_session_duration_seconds", "Duration of SSE connections in seconds"
+)
 
 # Agent metrics
 AGENT_RUNS = Counter(
@@ -32,6 +35,10 @@ LLM_LATENCY = Histogram(
     "llm_call_latency_seconds", "LLM call latency seconds", ["method", "provider"]
 )
 
+# Idempotency cache
+IDEMPOTENCY_CACHE_ENTRIES = Gauge(
+    "idempotency_cache_entries", "Number of entries in idempotency cache"
+)
 
 def prometheus_body() -> tuple[bytes, str]:
     """Return metrics body and content-type for FastAPI response."""

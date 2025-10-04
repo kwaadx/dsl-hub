@@ -5,10 +5,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from ..database import get_db
 from ..models import SchemaChannel, SchemaDef
+from ..dto import SchemaChannelOut
 
 router = APIRouter(prefix="/schema", tags=["schema"]) 
 
-@router.get("/channels")
+@router.get("/channels", response_model=List[SchemaChannelOut])
 def list_channels(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
     rows = db.execute(select(SchemaChannel)).scalars().all()
     out: List[Dict[str, Any]] = []
@@ -24,7 +25,7 @@ def list_channels(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
 class ActivateChannelIn(BaseModel):
     schema_def_id: str
 
-@router.post("/channels/{name}")
+@router.post("/channels/{name}", response_model=SchemaChannelOut)
 def activate_channel(name: str = Path(...), body: ActivateChannelIn = Body(...), db: Session = Depends(get_db)) -> Dict[str, Any]:
     # Validate target schema_def exists before changing channel
     sd = db.get(SchemaDef, body.schema_def_id)

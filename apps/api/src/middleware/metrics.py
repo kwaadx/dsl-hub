@@ -12,8 +12,14 @@ from ..metrics import HTTP_REQUESTS, HTTP_LATENCY
 class MetricsMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable[[Request], Response]) -> Response:  # type: ignore[override]
         method = request.method
-        # Use the raw path without query to keep cardinality low
-        path = request.url.path
+        # Prefer normalized route template to reduce cardinality
+        path_label = request.url.path
+        try:
+            route = request.scope.get("route")
+            if route is not None:
+                path_label = getattr(route, "path_format", None) or getattr(route, "path", path_label)
+        except Exception:
+            pass
         start = time.perf_counter()
         status_code = 500
         try:
@@ -23,8 +29,8 @@ class MetricsMiddleware(BaseHTTPMiddleware):
         finally:
             dur = time.perf_counter() - start
             try:
-                HTTP_LATENCY.labels(method=method, path=path).observe(dur)
-                HTTP_REQUESTS.labels(method=method, path=path, status=str(status_code)).inc()
+                HTTP_LATENCY.labels(method=method, path=path_label).observe(dur)
+                HTTP_REQUESTS.labels(method=method, path=path_label, status=str(status_code)).inc()
             except Exception:
                 # Never break request flow due to metrics errors
                 pass

@@ -20,6 +20,7 @@ class ThreadOut(BaseModel):
     flow_id: str
     status: str
     started_at: str
+    closed_at: Optional[str] = None
 
 class MessageIn(BaseModel):
     role: str
@@ -60,3 +61,16 @@ class PublishAck(BaseModel):
     flow_id: str
     version: str
     is_published: bool = True
+
+class SchemaDefBrief(BaseModel):
+    id: str
+    name: str
+    version: str
+
+class SchemaChannelOut(BaseModel):
+    name: str
+    active_schema_def_id: str
+    def_: Optional[SchemaDefBrief] = Field(default=None, alias="def")
+
+    class Config:
+        populate_by_name = True

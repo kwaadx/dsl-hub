@@ -40,18 +40,34 @@ class PipelineService:
         except (ValueError, AttributeError):
             return "1.0.1"
 
+    @staticmethod
+    def _bump_major(v: str | None) -> str:
+        if not v:
+            return "1.0.0"
+        try:
+            a,b,c = [int(x) for x in v.split(".")]
+            return f"{a+1}.0.0"
+        except (ValueError, AttributeError):
+            return "2.0.0"
+
     def create_version(self, flow_id: str, content: Dict[str, Any], version: str | None = None) -> Pipeline:
         # pick active schema_def from channel
-        channel = self.db.execute(select(SchemaChannel).where(SchemaChannel.name==settings.APP_SCHEMA_CHANNEL)).scalar_one_or_none()
+        channel = self.db.execute(select(SchemaChannel).where(SchemaChannel.name==settings.SCHEMA_CHANNEL)).scalar_one_or_none()
         if not channel:
             raise ValueError("No schema channel configured")
         schema_def_id = channel.active_schema_def_id
         if not schema_def_id:
             raise ValueError("No active schema definition in the configured channel")
         schema_ver = self.db.get(SchemaDef, schema_def_id).version
-        # derive next version (patch) from latest for this flow
+        # derive next version: bump major if schema_def changed since last, else patch
         last = self.db.query(Pipeline).filter(Pipeline.flow_id==flow_id).order_by(Pipeline.created_at.desc()).first()
-        v = version or (self._bump_patch(last.version) if last else "1.0.0")
+        if version:
+            v = version
+        else:
+            if last and str(getattr(last, "schema_def_id", None)) != str(schema_def_id):
+                v = self._bump_major(getattr(last, "version", None))
+            else:
+                v = self._bump_patch(getattr(last, "version", None) if last else None)
         pid = str(uuid.uuid4())
         canonical = json.dumps(content, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
         content_hash = hashlib.sha256(canonical).digest()

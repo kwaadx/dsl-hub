@@ -24,6 +24,17 @@ def _get_bool(name: str, default: bool) -> bool:
     return v in ("1", "true", "yes", "on")
 
 
+def _csv_env(name: str, default: str) -> list[str]:
+    """Parse CSV env var into a list; returns ["*"] if value is "*" or empty."""
+    raw = os.getenv(name, default)
+    if raw is None:
+        return ["*"] if default.strip() in ("*", "") else [p.strip() for p in default.split(",") if p.strip()]
+    raw = raw.strip()
+    if raw in ("*", ""):
+        return ["*"]
+    return [p.strip() for p in raw.split(",") if p.strip()]
+
+
 class Settings(BaseSettings):
     # Database config (завжди з DB_*)
     DB_HOST: str = Field(default="db")
@@ -41,8 +52,15 @@ class Settings(BaseSettings):
     SCHEMA_CHANNEL: str = os.getenv("API_SCHEMA_CHANNEL", "stable")
     SIMILARITY_THRESHOLD: float = float(os.getenv("API_SIMILARITY_THRESHOLD", "0.75"))
     SSE_PING_INTERVAL: int = int(os.getenv("API_SSE_PING_INTERVAL", "15"))
+    SSE_BUFFER_TTL_SEC: int = int(os.getenv("API_SSE_BUFFER_TTL_SEC", "300"))
+    SSE_BUFFER_MAXLEN: int = int(os.getenv("API_SSE_BUFFER_MAXLEN", "500"))
     APP_VERSION: str = os.getenv("APP_VERSION", "0.1.0")
     MAX_JSON_SIZE: int = int(os.getenv("API_MAX_JSON_SIZE", "1048576"))
+
+    # Idempotency / Security
+    IDEMPOTENCY_TTL_SEC: int = int(os.getenv("API_IDEMPOTENCY_TTL_SEC", "300"))
+    IDEMPOTENCY_CACHE_MAX: int = int(os.getenv("API_IDEMPOTENCY_CACHE_MAX", "1000"))
+    AUTH_TOKEN: Optional[str] = os.getenv("API_AUTH_TOKEN") or None
 
     # Init seed
     INIT_SCHEMA_ON_START: bool = _get_bool("API_INIT_SCHEMA_ON_START", True)
@@ -51,9 +69,16 @@ class Settings(BaseSettings):
     # LLM
     LLM_PROVIDER: str = os.getenv("API_LLM_PROVIDER", "mock")
     LLM_TIMEOUT: int = int(os.getenv("API_LLM_TIMEOUT", "30"))
+    LLM_RETRIES: int = int(os.getenv("API_LLM_RETRIES", "3"))
     OPENAI_API_KEY: Optional[str] = os.getenv("API_OPENAI_API_KEY") or None
     OPENAI_MODEL: str = os.getenv("API_OPENAI_MODEL", "gpt-4o-mini")
     OPENAI_BASE_URL: Optional[str] = os.getenv("API_OPENAI_BASE_URL") or None
+
+    # CORS
+    @property
+    def CORS_ORIGINS(self) -> list[str]:
+        # CSV list; "*" means allow all
+        return _csv_env("API_CORS_ORIGINS", "*")
 
 
 settings = Settings()

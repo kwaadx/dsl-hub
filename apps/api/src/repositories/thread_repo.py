@@ -14,7 +14,7 @@ class ThreadRepo:
         t = Thread(id=thread_id, flow_id=flow_id)
         self.db.add(t); self.db.flush()
         # Context snapshot from active artifacts
-        channel = self.db.execute(select(SchemaChannel).where(SchemaChannel.name==settings.APP_SCHEMA_CHANNEL)).scalar_one_or_none()
+        channel = self.db.execute(select(SchemaChannel).where(SchemaChannel.name==settings.SCHEMA_CHANNEL)).scalar_one_or_none()
         schema_def_id = channel.active_schema_def_id if channel else None
         if not schema_def_id:
             raise ValueError("No schema channel configured")

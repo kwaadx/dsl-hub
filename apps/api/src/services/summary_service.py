@@ -102,3 +102,49 @@ class SummaryService:
             filter(FlowSummary.flow_id == flow_id, FlowSummary.id != active_id, FlowSummary.is_active == True).\
             update({"is_active": False})
         self.db.flush()
+
+    def get_last_message_id(self, thread_id: str) -> str | None:
+        """Return the last message id for a thread, or None if no messages."""
+        _, _, last = self._messages_bounds(thread_id)
+        return last
+
+    async def close_thread(self, thread_id: str) -> Dict[str, Any]:
+        """Atomically close a thread and update flow summary.
+        Idempotent: if thread is already closed, do not create new summaries and return the latest ones.
+        """
+        t = self.db.get(Thread, thread_id)
+        if not t:
+            raise ValueError("Thread not found")
+        # If already closed, return latest existing summary info without side effects
+        if getattr(t, "closed_at", None):
+            # Latest thread summary
+            last_ts = self.db.execute(
+                select(ThreadSummary).where(ThreadSummary.thread_id == thread_id).order_by(ThreadSummary.created_at.desc()).limit(1)
+            ).scalar_one_or_none()
+            # Active flow summary
+            from ..repositories.flow_summary_repo import get_active as get_active_flow_summary
+            fs = get_active_flow_summary(self.db, str(t.flow_id))
+            return {
+                "ok": True,
+                "thread_id": thread_id,
+                "thread_summary_id": str(last_ts.id) if last_ts else None,
+                "flow_summary": {"id": str(fs.id), "version": fs.version} if fs else {"id": None, "version": 0},
+            }
+        # Summarize thread
+        ts = await self.run_thread_summary(thread_id)
+        # Compute last message id once
+        last_message_id = self.get_last_message_id(thread_id)
+        # Upsert flow summary and ensure single active
+        fs = self.upsert_flow_summary(str(t.flow_id), last_message_id=last_message_id,
+                                      new_content={"summary": ts.content.get("summary", "")})
+        self.ensure_single_active(str(t.flow_id), str(fs.id))
+        # Close thread
+        t.status = "SUCCESS"
+        t.closed_at = datetime.now(UTC)
+        self.db.flush()
+        return {
+            "ok": True,
+            "thread_id": thread_id,
+            "thread_summary_id": str(ts.id),
+            "flow_summary": {"id": str(fs.id), "version": fs.version}
+        }

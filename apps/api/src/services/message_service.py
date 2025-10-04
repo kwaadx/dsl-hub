@@ -2,6 +2,7 @@ import uuid
 from typing import Any, Optional, List, Dict
 from sqlalchemy.orm import Session
 from ..repositories.message_repo import MessageRepo
+from ..middleware.error import AppError
 
 ALLOWED_ROLES = {"user", "assistant", "system", "tool"}
 ALLOWED_FORMATS = {"text", "markdown", "json", "buttons", "card"}
@@ -22,17 +23,17 @@ class MessageService:
         fmt: str = "text",
     ) -> Dict[str, str]:
         if role not in ALLOWED_ROLES:
-            raise ValueError("Invalid role")
+            raise AppError(status=400, code="BAD_ROLE", message=f"Invalid role: {role}")
         if fmt not in ALLOWED_FORMATS:
-            raise ValueError("Invalid format")
+            raise AppError(status=400, code="BAD_FORMAT", message=f"Invalid format: {fmt}")
         if role == "tool" and not tool_name:
-            raise ValueError("tool_name required for role=tool")
+            raise AppError(status=400, code="TOOL_NAME_REQUIRED", message="tool_name required for role=tool")
         # parent must belong to the same thread
         if parent_id:
             from ..models import Message
             parent = self.db.get(Message, parent_id)
             if not parent or str(parent.thread_id) != thread_id:
-                raise ValueError("parent_id must belong to the same thread")
+                raise AppError(status=400, code="PARENT_NOT_SAME_THREAD", message="parent_id must belong to the same thread")
         mid = str(uuid.uuid4())
         m = self.repo.add(mid, thread_id, role, content, parent_id, tool_name, tool_result, fmt)
         return {"id": str(m.id), "created_at": m.created_at.isoformat()}

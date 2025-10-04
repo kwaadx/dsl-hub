@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..services.pipeline_service import PipelineService
+from ..dto import PublishAck
 
 router = APIRouter(prefix="/pipelines", tags=["pipelines"])
 
@@ -15,7 +16,7 @@ def get_pipeline(pipeline_id: str, db: Session = Depends(get_db)):
     svc = PipelineService(db)
     return svc.get(pipeline_id)
 
-@router.post("/{pipeline_id}/publish")
+@router.post("/{pipeline_id}/publish", response_model=PublishAck)
 def publish_pipeline(pipeline_id: str, db: Session = Depends(get_db)):
     svc = PipelineService(db)
     return svc.publish(pipeline_id)

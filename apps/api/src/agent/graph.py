@@ -48,7 +48,7 @@ class AgentRunner:
         db = self.session_factory()
         try:
             ch = db.execute(
-                select(SchemaChannel).where(SchemaChannel.name == settings.APP_SCHEMA_CHANNEL)).scalar_one_or_none()
+                select(SchemaChannel).where(SchemaChannel.name == settings.SCHEMA_CHANNEL)).scalar_one_or_none()
             schema_def = ch.active_schema.json if ch and ch.active_schema else {}
             fs = get_active_flow_summary(db, flow_id)
             ap = db.execute(select(Pipeline).where(Pipeline.flow_id == flow_id, Pipeline.is_published == True).limit(

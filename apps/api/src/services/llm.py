@@ -99,7 +99,7 @@ class LLMClient:
             "active_pipeline": context.get("active_pipeline"),
             "user_message": user_message,
         }, ensure_ascii=False)
-        attempts = 3
+        attempts = int(getattr(settings, "LLM_RETRIES", 3))
         backoff = 0.5
         for i in range(attempts):
             start = asyncio.get_event_loop().time()
@@ -171,7 +171,7 @@ class LLMClient:
             "Only output JSON."
         )
         user = json.dumps({"draft": draft}, ensure_ascii=False)
-        attempts = 3
+        attempts = int(getattr(settings, "LLM_RETRIES", 3))
         backoff = 0.5
         for i in range(attempts):
             start = asyncio.get_event_loop().time()
@@ -246,7 +246,7 @@ class LLMClient:
             "Only output JSON."
         )
         user = json.dumps({"thread": payload}, ensure_ascii=False)
-        attempts = 3
+        attempts = int(getattr(settings, "LLM_RETRIES", 3))
         backoff = 0.5
         for i in range(attempts):
             start = asyncio.get_event_loop().time()

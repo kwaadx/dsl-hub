@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from ..models import SchemaChannel, SchemaDef
 from ..config import settings
+import re
 
 SEV_ERROR = {"required", "type", "enum"}
 
@@ -12,7 +13,7 @@ class ValidationService:
         self.db = db
 
     def _active_schema(self) -> SchemaDef:
-        ch = self.db.execute(select(SchemaChannel).where(SchemaChannel.name==settings.APP_SCHEMA_CHANNEL)).scalar_one_or_none()
+        ch = self.db.execute(select(SchemaChannel).where(SchemaChannel.name==settings.SCHEMA_CHANNEL)).scalar_one_or_none()
         if not ch:
             raise ValueError("No schema channel configured")
         schema_def = self.db.get(SchemaDef, ch.active_schema_def_id)
@@ -25,7 +26,18 @@ class ValidationService:
         issues: List[Dict[str, Any]] = []
         for e in v.iter_errors(pipeline):
             code = getattr(e, "validator", "schema") or "schema"
-            path = "/" + "/".join([str(x) for x in e.path])
+            # Build JSON Pointer-like path
+            base_path = "/" + "/".join([str(x) for x in e.path])
+            # For `required`, append the missing property to align with spec examples
+            if code == "required":
+                m = re.search(r"'([^']+)' is a required property", e.message)
+                if m:
+                    missing = m.group(1)
+                    path = base_path + ("/" if base_path != "/" else "") + missing if base_path else "/" + missing
+                else:
+                    path = base_path or "/"
+            else:
+                path = base_path or "/"
             severity = "error" if code in SEV_ERROR else "warning"
             issues.append({
                 "path": path,
