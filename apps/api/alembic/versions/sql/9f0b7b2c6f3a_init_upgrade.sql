@@ -110,6 +110,27 @@ create table if not exists message
     constraint message_tool_name_ck check (case when role = 'tool' then tool_name is not null else true end)
 );
 create index if not exists message_thread_created_idx on message (thread_id, created_at);
+
+-- Ensure legacy DBs have jsonb types for GIN jsonb_path_ops
+do
+$$
+begin
+    if exists (
+        select 1 from information_schema.columns
+        where table_name = 'message' and column_name = 'content' and data_type = 'json'
+    ) then
+        execute 'alter table message alter column content type jsonb using content::jsonb';
+    end if;
+
+    if exists (
+        select 1 from information_schema.columns
+        where table_name = 'message' and column_name = 'tool_result' and data_type = 'json'
+    ) then
+        execute 'alter table message alter column tool_result type jsonb using tool_result::jsonb';
+    end if;
+end
+$$;
+
 create index if not exists message_content_gin on message using gin (content jsonb_path_ops);
 create index if not exists message_parent_idx on message (parent_id);
 
@@ -190,7 +211,25 @@ create index if not exists pipeline_created_idx on pipeline (created_at);
 create index if not exists idx_pipeline_flow_created_at
     on pipeline (flow_id, created_at desc);
 create index if not exists pipeline_schema_def_idx on pipeline (schema_def_id);
+
+-- Ensure legacy DBs have jsonb types for GIN jsonb_path_ops on pipeline.content
+do
+$$
+begin
+    if exists (
+        select 1 from information_schema.columns
+        where table_name = 'pipeline' and column_name = 'content' and data_type = 'json'
+    ) then
+        execute 'alter table pipeline alter column content type jsonb using content::jsonb';
+    end if;
+end
+$$;
+
 create index if not exists pipeline_content_gin on pipeline using gin (content jsonb_path_ops);
+
+alter table pipeline
+    add column if not exists content_text text generated always as (content::text) stored;
+
 create index if not exists pipeline_content_text_trgm
     on pipeline using gin (content_text gin_trgm_ops);
 create unique index if not exists pipeline_flow_content_hash_uk
@@ -325,6 +364,28 @@ alter table flow_summary
 
 create unique index if not exists flow_summary_one_active_per_flow
     on flow_summary (flow_id) where is_active = true;
+
+-- Ensure legacy DBs have jsonb types for GIN jsonb_path_ops on flow_summary.content
+-- Also normalize pinned to jsonb if needed
+do
+$$
+begin
+    if exists (
+        select 1 from information_schema.columns
+        where table_name = 'flow_summary' and column_name = 'content' and data_type = 'json'
+    ) then
+        execute 'alter table flow_summary alter column content type jsonb using content::jsonb';
+    end if;
+
+    if exists (
+        select 1 from information_schema.columns
+        where table_name = 'flow_summary' and column_name = 'pinned' and data_type = 'json'
+    ) then
+        execute 'alter table flow_summary alter column pinned type jsonb using pinned::jsonb';
+    end if;
+end
+$$;
+
 create index if not exists flow_summary_content_gin
     on flow_summary using gin (content jsonb_path_ops);
 
@@ -356,6 +417,20 @@ create table if not exists thread_summary
         check (covering_to is null or covering_from is null or covering_to >= covering_from)
 );
 create index if not exists thread_summary_thread_idx on thread_summary (thread_id);
+
+-- Ensure legacy DBs have jsonb types for GIN jsonb_path_ops on thread_summary.content
+do
+$$
+begin
+    if exists (
+        select 1 from information_schema.columns
+        where table_name = 'thread_summary' and column_name = 'content' and data_type = 'json'
+    ) then
+        execute 'alter table thread_summary alter column content type jsonb using content::jsonb';
+    end if;
+end
+$$;
+
 create index if not exists thread_summary_content_gin
     on thread_summary using gin (content jsonb_path_ops);
 

@@ -1,8 +1,12 @@
 import os
+import sys
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 from logging.config import fileConfig
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
 from src.database import Base
 
 config = context.config
@@ -22,10 +26,8 @@ config.set_main_option(
                                          db_name))
 
 fileConfig(config.config_file_name)
-
-from src.database import models
-
 target_metadata = Base.metadata
+
 
 def run_migrations_offline():
     url = config.get_main_option("sqlalchemy.url")

@@ -10,13 +10,10 @@ from __future__ import annotations
 from pathlib import Path
 from alembic import op
 
-# revision identifiers, used by Alembic.
 revision = ${repr(up_revision)}
 down_revision = ${repr(down_revision)}
 branch_labels = ${repr(branch_labels)}
 depends_on = ${repr(depends_on)}
-
-## Compute a safe slug from the message at generation time
 <%
 import re
 
@@ -30,18 +27,14 @@ def make_slug(msg):
 
 safe_slug = make_slug(message)
 %>
-
-# Persist the resolved slug in the generated script
 slug = ${repr(safe_slug)}
 
 
 def _read_sql(kind: str) -> str:
     base_dir = Path(__file__).resolve().parent
-    # primary file name includes the message slug
     path_with_slug = base_dir / "sql" / f"{revision}_{slug}_{kind}.sql"
     if path_with_slug.exists():
         return path_with_slug.read_text(encoding="utf-8")
-    # fallback to files without slug, e.g., {revision}_upgrade.sql
     path_simple = base_dir / "sql" / f"{revision}_{kind}.sql"
     if path_simple.exists():
         return path_simple.read_text(encoding="utf-8")

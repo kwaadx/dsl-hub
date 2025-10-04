@@ -180,13 +180,47 @@ build-no-cache: ## Build all images with --no-cache and --pull, then start
 	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) up -d
 	$(call SUCCESS,Fresh build completed.)
 
-reset: ## Full reset: clean project, prune build cache, rebuild from scratch
-	$(call WARNING,This will wipe containers/volumes/images and build cache for this project!)
-	@$(MAKE) clean-docker
-	@docker builder prune -af || true
+# ───────────────────────────────────────────────
+# 🧨 Full project-scoped reset (containers + volumes + images + orphans)
+# ───────────────────────────────────────────────
+reset: ## Variant A: wipe ONLY this project's stack (containers, volumes, images, networks), then rebuild & start
+	$(call WARNING,This will WIPE containers/volumes/images for project '$(PROJECT)'!)
+	# 1) Down + remove orphans
+	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) down --remove-orphans || true
+	# 2) Down with volumes + local images (double-tap to be sure)
+	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) down -v --rmi local --remove-orphans || true
+
+	# 3) Kill any leftover "compose run" orphans like $(PROJECT)-api-run-xxxx
+	@docker ps -aq --filter "name=$(PROJECT)-.*-run-" | xargs -r docker rm -f
+
+	# 4) Hard remove project network (if still alive) after disconnecting stragglers
+	@for cid in $$(docker ps -aq --filter "network=$(NETWORK)"); do \
+		docker network disconnect -f "$(NETWORK)" $$cid || true; \
+	done
+	@docker network rm "$(NETWORK)" 2>/dev/null || true
+
+	# 5) Remove ALL project-scoped volumes & images by label (safer than hardcoding names)
+	@docker volume ls -q --filter "label=com.docker.compose.project=$(PROJECT)" | xargs -r docker volume rm -f
+	@docker images -q --filter "label=com.docker.compose.project=$(PROJECT)" | xargs -r docker rmi -f
+	# Also remove any dangling stuff left behind
+	@docker image prune -f >/dev/null || true
+
+	# 6) (Opt.) Clean build cache so images are truly fresh
+	@docker builder prune -af >/dev/null || true
+
+	# 7) Fresh build & up
+	$(call INFO,Building images with --no-cache --pull ...)
 	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) build --no-cache --pull
+	$(call INFO,Starting services ...)
 	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) up -d
-	$(call SUCCESS,Reset completed: fresh images are running.)
+	$(call SUCCESS,Variant A reset done — fresh stack is running.)
+
+# ───────────────────────────────────────────────
+# 🗄️ Small fix: DB shell helper (uses DB_NAME)
+# ───────────────────────────────────────────────
+db-shell: ## Open psql shell in db container
+	@docker exec -it dsl-hub-db psql -U $$DB_USER -d $$DB_NAME \
+	|| docker exec -it dsl-hub-db psql -U postgres -d postgres
 
 prune-build-cache: ## Remove Docker build cache (buildx)
 	$(call INFO,Pruning Docker build cache ...)
