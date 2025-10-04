@@ -22,13 +22,13 @@ class PipelineService:
 
     def get(self, pid: str) -> Dict[str, Any]:
         p = self.repo.get(pid)
-        return {
-            "id": str(p.id), "flow_id": str(p.flow_id), "version": p.version,
-            "status": p.status, "is_published": bool(p.is_published),
-            "schema_version": p.schema_version, "schema_def_id": str(p.schema_def_id) if p.schema_def_id else None,
-            "created_at": p.created_at.isoformat(),
-            "content": p.content
-        }
+        return dict(
+            id=str(p.id), flow_id=str(p.flow_id), version=p.version,
+            status=p.status, is_published=bool(p.is_published),
+            schema_version=p.schema_version, schema_def_id=str(p.schema_def_id) if p.schema_def_id else None,
+            created_at=p.created_at.isoformat(),
+            content=p.content
+        )
 
     @staticmethod
     def _bump_patch(v: str | None) -> str:
@@ -86,4 +86,4 @@ class PipelineService:
         if cnt and int(cnt) > 1:
             # Let the middleware rollback the transaction
             raise HTTPException(status_code=409, detail="Publish conflict: multiple published versions for this flow")
-        return {"ok": True, "flow_id": str(p.flow_id), "version": p.version, "is_published": True}
+        return dict(ok=True, flow_id=str(p.flow_id), version=p.version, is_published=True)

@@ -36,7 +36,7 @@ class MessageService:
                 raise AppError(status=400, code="PARENT_NOT_SAME_THREAD", message="parent_id must belong to the same thread")
         mid = str(uuid.uuid4())
         m = self.repo.add(mid, thread_id, role, content, parent_id, tool_name, tool_result, fmt)
-        return {"id": str(m.id), "created_at": m.created_at.isoformat()}
+        return dict(id=str(m.id), created_at=m.created_at.isoformat())
 
     def list(self, thread_id: str, limit: int = 50, before: Optional[str] = None) -> List[Dict[str, Any]]:
         from datetime import datetime

@@ -11,6 +11,7 @@ from fastapi import HTTPException as FastHTTPException
 from .config import settings
 from .metrics import prometheus_body
 from sqlalchemy import text
+from typing import Any
 
 # Optional routers imported lazily to avoid circulars
 from .routers import upgrades
@@ -37,7 +38,7 @@ app.add_exception_handler(FastHTTPException, handle_http_error)
 app.add_exception_handler(Exception, handle_generic_error)
 
 @app.get("/healthz")
-def healthz():
+def healthz() -> dict[str, Any] | JSONResponse:
     # Probe database connectivity; return 200 if OK, 503 if DB unavailable
     try:
         from .database import SessionLocal
@@ -46,17 +47,17 @@ def healthz():
             db.execute(text("SELECT 1"))
         finally:
             db.close()
-        return {"status": "ok"}
+        return dict(status="ok")
     except Exception as e:
-        return JSONResponse(status_code=503, content={"status": "degraded", "db": "unhealthy", "error": str(e)})
+        return JSONResponse(status_code=503, content=dict(status="degraded", db="unhealthy", error=str(e)))
 
 
 @app.get("/version")
-def version():
-    return {"app":"dsl-hub","version": settings.APP_VERSION}
+def version() -> dict[str, Any]:
+    return dict(app="dsl-hub", version=settings.APP_VERSION)
 
 @app.get("/metrics")
-def metrics():
+def metrics() -> Response:
     body, ctype = prometheus_body()
     return Response(content=body, media_type=ctype)
 

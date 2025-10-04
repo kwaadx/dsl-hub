@@ -13,7 +13,7 @@ class _StreamState:
         self.subscribers: List[asyncio.Queue] = []
         try:
             maxlen = int(getattr(settings, "SSE_BUFFER_MAXLEN", 500))
-        except Exception:
+        except (ValueError, TypeError):
             maxlen = 500
         self.buffer = deque(maxlen=maxlen)
 
@@ -42,7 +42,7 @@ class SSEBus:
         # prune by TTL to avoid unbounded growth
         try:
             ttl_ms = int(getattr(settings, "SSE_BUFFER_TTL_SEC", 300)) * 1000
-        except Exception:
+        except (ValueError, TypeError):
             ttl_ms = 300 * 1000
         now_ms = int(time.time() * 1000)
         while state.buffer and (now_ms - state.buffer[0]["ts"]) > ttl_ms:
@@ -62,7 +62,7 @@ class SSEBus:
                 q.put_nowait(payload)
         try:
             SSE_EVENTS.labels(event=event_type).inc()
-        except Exception:
+        except ValueError:
             pass
         return state.cursor
 
@@ -72,7 +72,7 @@ class SSEBus:
         state.subscribers.append(q)
         try:
             SSE_CONNECTIONS.labels(action="open").inc()
-        except Exception:
+        except ValueError:
             pass
         return q, state.cursor
 
@@ -98,7 +98,7 @@ class SSEBus:
             state.subscribers.remove(q)
         try:
             SSE_CONNECTIONS.labels(action="close").inc()
-        except Exception:
+        except ValueError:
             pass
 
 bus = SSEBus()
@@ -114,7 +114,7 @@ def _to_sse_message(item: Dict[str, Any]) -> Dict[str, Any]:
         payload = {**data, "ts": ts}
     else:
         payload = {"value": data, "ts": ts}
-    return {"event": item["type"], "id": str(item["cursor"]), "data": payload}
+    return dict(event=item["type"], id=str(item["cursor"]), data=payload)
 
 async def sse_response(thread_id: str, ping_interval: int = 15, last_event_id: str | None = None):
     # subscribe first
@@ -149,7 +149,7 @@ async def sse_response(thread_id: str, ping_interval: int = 15, last_event_id: s
             try:
                 dur = max(0.0, time.time() - started)
                 SSE_SESSION_SECONDS.observe(dur)
-            except Exception:
+            except ValueError:
                 pass
             await bus.unsubscribe(thread_id, q)
 

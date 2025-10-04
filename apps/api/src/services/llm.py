@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, Callable
 
 from ..config import settings
 from ..metrics import LLM_CALLS, LLM_LATENCY
@@ -20,7 +20,33 @@ except ImportError:  # pragma: no cover
     OpenAIError = Exception  # type: ignore
 
 
-def _ensure_json(text: str) -> Dict:
+def _default_pipeline() -> Dict[str, Any]:
+    """Return a fresh default pipeline payload."""
+    return {
+        "name": "example-pipeline",
+        "stages": [
+            {"name": "load", "type": "source", "params": {"path": "s3://bucket/key"}},
+            {"name": "transform", "type": "map", "params": {"fn": "clean_text"}},
+            {"name": "save", "type": "sink", "params": {"table": "results"}},
+        ],
+    }
+
+
+def _record_metrics(method: str, provider: str, status: str, duration: Optional[float] = None) -> None:
+    """Best-effort metrics recording with narrow exception handling."""
+    try:
+        LLM_CALLS.labels(method=method, provider=provider, status=status).inc()
+        if duration is None:
+            # use a tiny positive number to avoid zero-value bin artifacts
+            LLM_LATENCY.labels(method=method, provider=provider).observe(0.0001)
+        else:
+            LLM_LATENCY.labels(method=method, provider=provider).observe(duration)
+    except (ValueError, TypeError, RuntimeError):
+        # Never let metrics break user flow
+        return
+
+
+def _ensure_json(text: str) -> Dict[str, Any]:
     """Extract JSON object from a model output. Tolerates code fences."""
     s = text.strip()
     # strip code fences if present
@@ -36,14 +62,7 @@ def _ensure_json(text: str) -> Dict:
         return json.loads(s)
     except json.JSONDecodeError:
         # Fallback minimal pipeline if parsing fails
-        return {
-            "name": "example-pipeline",
-            "stages": [
-                {"name": "load", "type": "source", "params": {"path": "s3://bucket/key"}},
-                {"name": "transform", "type": "map", "params": {"fn": "clean_text"}},
-                {"name": "save", "type": "sink", "params": {"table": "results"}},
-            ],
-        }
+        return _default_pipeline()
 
 
 class LLMClient:
@@ -66,27 +85,69 @@ class LLMClient:
         # model name (used by openai provider)
         self.model = getattr(settings, "OPENAI_MODEL", "gpt-4o-mini")
 
-    async def generate_pipeline(self, context: dict, user_message: dict) -> dict:
+    async def _chat_json_retry(
+        self,
+        method: str,
+        system: str,
+        user: str,
+        temperature: float,
+        finalize: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]],
+        fallback: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Call OpenAI Chat Completions with JSON response_format, retries, and metrics.
+        Assumes provider == 'openai'. The finalize callback can normalize the parsed JSON.
+        """
+        provider = self.provider
+        assert self._client is not None
+        attempts = max(1, int(getattr(settings, "LLM_RETRIES", 3)))
+        backoff = 0.5
+        for i in range(attempts):
+            start = asyncio.get_event_loop().time()
+            try:
+                resp = await asyncio.wait_for(
+                    self._client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": system},
+                            {"role": "user", "content": user},
+                        ],
+                        temperature=temperature,
+                        response_format={"type": "json_object"},
+                    ),
+                    timeout=self.timeout,
+                )
+                content = resp.choices[0].message.content or "{}"
+                data = _ensure_json(content)
+                if finalize is not None:
+                    try:
+                        data = finalize(data)
+                    except (TypeError, ValueError):
+                        # if finalize fails, proceed with parsed data
+                        pass
+                dur = asyncio.get_event_loop().time() - start
+                _record_metrics(method, provider, "ok", dur)
+                return data
+            except (asyncio.TimeoutError, OpenAIError):
+                dur = asyncio.get_event_loop().time() - start
+                _record_metrics(method, provider, "error", dur)
+                if i < attempts - 1:
+                    jitter = (0.1 * backoff)
+                    await asyncio.sleep(backoff + jitter)
+                    backoff *= 2
+                    continue
+                return fallback
+        # Safety fallback
+        return fallback
+
+    async def generate_pipeline(self, context: Dict[str, Any], user_message: Dict[str, Any]) -> Dict[str, Any]:
         method = "generate_pipeline"
         provider = self.provider
         if provider != "openai":
             # mock path
-            out = {
-                "name": "example-pipeline",
-                "stages": [
-                    {"name": "load", "type": "source", "params": {"path": "s3://bucket/key"}},
-                    {"name": "transform", "type": "map", "params": {"fn": "clean_text"}},
-                    {"name": "save", "type": "sink", "params": {"table": "results"}},
-                ],
-            }
-            try:
-                LLM_CALLS.labels(method=method, provider=provider, status="ok").inc()
-                # don't observe 0 to avoid bins artifact
-                LLM_LATENCY.labels(method=method, provider=provider).observe(0.0001)
-            except Exception:
-                pass
+            out = _default_pipeline()
+            _record_metrics(method, provider, "ok", None)
             return out
-        # OpenAI provider with retry/backoff
+        # OpenAI provider with retry/backoff (refactored)
         assert self._client is not None
         system = (
             "You are an expert DSL pipeline author. Always respond with pure JSON (no extra text).\n"
@@ -99,56 +160,16 @@ class LLMClient:
             "active_pipeline": context.get("active_pipeline"),
             "user_message": user_message,
         }, ensure_ascii=False)
-        attempts = int(getattr(settings, "LLM_RETRIES", 3))
-        backoff = 0.5
-        for i in range(attempts):
-            start = asyncio.get_event_loop().time()
-            try:
-                resp = await asyncio.wait_for(
-                    self._client.chat.completions.create(
-                        model=self.model,
-                        messages=[
-                            {"role": "system", "content": system},
-                            {"role": "user", "content": user},
-                        ],
-                        temperature=0.2,
-                        response_format={"type": "json_object"},
-                    ),
-                    timeout=self.timeout,
-                )
-                content = resp.choices[0].message.content or "{}"
-                out = _ensure_json(content)
-                try:
-                    dur = asyncio.get_event_loop().time() - start
-                    LLM_CALLS.labels(method=method, provider=provider, status="ok").inc()
-                    LLM_LATENCY.labels(method=method, provider=provider).observe(dur)
-                except Exception:
-                    pass
-                return out
-            except (asyncio.TimeoutError, OpenAIError):
-                try:
-                    dur = asyncio.get_event_loop().time() - start
-                    LLM_CALLS.labels(method=method, provider=provider, status="error").inc()
-                    LLM_LATENCY.labels(method=method, provider=provider).observe(dur)
-                except Exception:
-                    pass
-                if i < attempts - 1:
-                    # exponential backoff with jitter
-                    jitter = (0.1 * backoff)
-                    await asyncio.sleep(backoff + jitter)
-                    backoff *= 2
-                    continue
-                # final fallback
-                return {
-                    "name": "example-pipeline",
-                    "stages": [
-                        {"name": "load", "type": "source", "params": {"path": "s3://bucket/key"}},
-                        {"name": "transform", "type": "map", "params": {"fn": "clean_text"}},
-                        {"name": "save", "type": "sink", "params": {"table": "results"}},
-                    ],
-                }
+        return await self._chat_json_retry(
+            method=method,
+            system=system,
+            user=user,
+            temperature=0.2,
+            finalize=None,
+            fallback=_default_pipeline(),
+        )
 
-    async def self_check(self, draft: dict) -> dict:
+    async def self_check(self, draft: Dict[str, Any]) -> Dict[str, Any]:
         method = "self_check"
         provider = self.provider
         if provider != "openai":
@@ -156,13 +177,10 @@ class LLMClient:
                 "notes": [
                     "Verify `path` exists.",
                     "Validate that `table` is present and accessible.",
-                ]
+                ],
+                "risks": [],
             }
-            try:
-                LLM_CALLS.labels(method=method, provider=provider, status="ok").inc()
-                LLM_LATENCY.labels(method=method, provider=provider).observe(0.0001)
-            except Exception:
-                pass
+            _record_metrics(method, provider, "ok", None)
             return out
         assert self._client is not None
         system = (
@@ -171,49 +189,20 @@ class LLMClient:
             "Only output JSON."
         )
         user = json.dumps({"draft": draft}, ensure_ascii=False)
-        attempts = int(getattr(settings, "LLM_RETRIES", 3))
-        backoff = 0.5
-        for i in range(attempts):
-            start = asyncio.get_event_loop().time()
-            try:
-                resp = await asyncio.wait_for(
-                    self._client.chat.completions.create(
-                        model=self.model,
-                        messages=[
-                            {"role": "system", "content": system},
-                            {"role": "user", "content": user},
-                        ],
-                        temperature=0.0,
-                        response_format={"type": "json_object"},
-                    ),
-                    timeout=self.timeout,
-                )
-                content = resp.choices[0].message.content or "{}"
-                data = _ensure_json(content)
-                if "notes" not in data:
-                    data["notes"] = []
-                if "risks" not in data:
-                    data["risks"] = []
-                try:
-                    dur = asyncio.get_event_loop().time() - start
-                    LLM_CALLS.labels(method=method, provider=provider, status="ok").inc()
-                    LLM_LATENCY.labels(method=method, provider=provider).observe(dur)
-                except Exception:
-                    pass
-                return data
-            except (asyncio.TimeoutError, OpenAIError):
-                try:
-                    dur = asyncio.get_event_loop().time() - start
-                    LLM_CALLS.labels(method=method, provider=provider, status="error").inc()
-                    LLM_LATENCY.labels(method=method, provider=provider).observe(dur)
-                except Exception:
-                    pass
-                if i < attempts - 1:
-                    jitter = (0.1 * backoff)
-                    await asyncio.sleep(backoff + jitter)
-                    backoff *= 2
-                    continue
-                return {"notes": ["Self-check failed (provider error)."], "risks": []}
+        def _finalize_sc(data: Dict[str, Any]) -> Dict[str, Any]:
+            if "notes" not in data:
+                data["notes"] = []
+            if "risks" not in data:
+                data["risks"] = []
+            return data
+        return await self._chat_json_retry(
+            method=method,
+            system=system,
+            user=user,
+            temperature=0.0,
+            finalize=_finalize_sc,
+            fallback={"notes": ["Self-check failed (provider error)."], "risks": []},
+        )
 
     async def summarize(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Summarize a thread. Payload contains {thread_id, flow_id, messages[]}.
@@ -225,70 +214,37 @@ class LLMClient:
             msgs = payload.get("messages", []) or []
             count = len(msgs)
             last = msgs[-1]["content"] if msgs else {}
-            out = {
-                "summary": f"Короткий підсумок обговорення: {count} повідомлень.",
-                "bullets": [
-                    "Огляд цілей користувача",
-                    "Основні кроки, які було обговорено",
+            out = dict(
+                summary=f"Brief discussion summary: {count} messages.",
+                bullets=[
+                    "Overview of user goals",
+                    "Key steps discussed",
                 ],
-                "last_hint": last,
-            }
-            try:
-                LLM_CALLS.labels(method=method, provider=provider, status="ok").inc()
-                LLM_LATENCY.labels(method=method, provider=provider).observe(0.0001)
-            except Exception:
-                pass
+                last_hint=last,
+            )
+            _record_metrics(method, provider, "ok", None)
             return out
         assert self._client is not None
         system = (
             "You are a helpful assistant that summarizes chat threads for engineers.\n"
-            "Return a JSON object with fields: summary (string, concise UA), bullets (array of 2-5 concise UA strings).\n"
+            "Return a JSON object with fields: summary (string, concise English), bullets (array of 2-5 concise English strings).\n"
             "Only output JSON."
         )
         user = json.dumps({"thread": payload}, ensure_ascii=False)
-        attempts = int(getattr(settings, "LLM_RETRIES", 3))
-        backoff = 0.5
-        for i in range(attempts):
-            start = asyncio.get_event_loop().time()
-            try:
-                resp = await asyncio.wait_for(
-                    self._client.chat.completions.create(
-                        model=self.model,
-                        messages=[
-                            {"role": "system", "content": system},
-                            {"role": "user", "content": user},
-                        ],
-                        temperature=0.2,
-                        response_format={"type": "json_object"},
-                    ),
-                    timeout=self.timeout,
-                )
-                content = resp.choices[0].message.content or "{}"
-                data = _ensure_json(content)
-                if "summary" not in data:
-                    data["summary"] = ""
-                if "bullets" not in data:
-                    data["bullets"] = []
-                try:
-                    dur = asyncio.get_event_loop().time() - start
-                    LLM_CALLS.labels(method=method, provider=provider, status="ok").inc()
-                    LLM_LATENCY.labels(method=method, provider=provider).observe(dur)
-                except Exception:
-                    pass
-                return data
-            except (asyncio.TimeoutError, OpenAIError):
-                try:
-                    dur = asyncio.get_event_loop().time() - start
-                    LLM_CALLS.labels(method=method, provider=provider, status="error").inc()
-                    LLM_LATENCY.labels(method=method, provider=provider).observe(dur)
-                except Exception:
-                    pass
-                if i < attempts - 1:
-                    jitter = (0.1 * backoff)
-                    await asyncio.sleep(backoff + jitter)
-                    backoff *= 2
-                    continue
-                return {
-                    "summary": "Короткий підсумок обговорення (LLM timeout).",
-                    "bullets": [],
-                }
+        def _finalize_sum(data: Dict[str, Any]) -> Dict[str, Any]:
+            if "summary" not in data:
+                data["summary"] = ""
+            if "bullets" not in data:
+                data["bullets"] = []
+            return data
+        return await self._chat_json_retry(
+            method=method,
+            system=system,
+            user=user,
+            temperature=0.2,
+            finalize=_finalize_sum,
+            fallback=dict(
+                summary="Brief discussion summary (LLM timeout).",
+                bullets=[],
+            ),
+        )

@@ -22,7 +22,7 @@ class UpgradePlanOut(BaseModel):
     strategy: str
 
 @router.post("/schema/upgrade-plan", response_model=UpgradePlanOut, status_code=201)
-def create_upgrade_plan(body: UpgradePlanCreate = Body(...), db: Session = Depends(get_db)):
+def create_upgrade_plan(body: UpgradePlanCreate = Body(...), db: Session = Depends(get_db)) -> UpgradePlanOut:
     from_def = db.get(SchemaDef, body.from_schema_def_id)
     to_def = db.get(SchemaDef, body.to_schema_def_id)
     if not from_def or not to_def:
@@ -44,13 +44,13 @@ def create_upgrade_plan(body: UpgradePlanCreate = Body(...), db: Session = Depen
         transform_spec=body.transform_spec or {},
     )
     db.add(plan); db.flush()
-    return {
-        "id": str(plan.id),
-        "name": plan.name,
-        "from_schema_def_id": str(plan.from_schema_def_id),
-        "to_schema_def_id": str(plan.to_schema_def_id),
-        "strategy": plan.strategy,
-    }
+    return UpgradePlanOut(
+        id=str(plan.id),
+        name=plan.name,
+        from_schema_def_id=str(plan.from_schema_def_id),
+        to_schema_def_id=str(plan.to_schema_def_id),
+        strategy=plan.strategy,
+    )
 
 class UpgradeStart(BaseModel):
     upgrade_plan_id: str
@@ -62,7 +62,7 @@ class PipelineUpgradeRunOut(BaseModel):
     upgrade_plan_id: Optional[str] = None
 
 @router.post("/pipelines/{pipeline_id}/upgrade", response_model=PipelineUpgradeRunOut, status_code=202)
-def start_pipeline_upgrade(pipeline_id: str = Path(...), body: UpgradeStart = Body(...), db: Session = Depends(get_db)):
+def start_pipeline_upgrade(pipeline_id: str = Path(...), body: UpgradeStart = Body(...), db: Session = Depends(get_db)) -> PipelineUpgradeRunOut:
     p = db.get(Pipeline, pipeline_id)
     if not p:
         raise HTTPException(status_code=404, detail="Pipeline not found")
@@ -80,12 +80,12 @@ def start_pipeline_upgrade(pipeline_id: str = Path(...), body: UpgradeStart = Bo
         mode="auto",
     )
     db.add(run); db.flush()
-    return {
-        "id": str(run.id),
-        "pipeline_id": str(run.pipeline_id),
-        "status": run.status,
-        "upgrade_plan_id": str(run.upgrade_plan_id) if run.upgrade_plan_id else None,
-    }
+    return PipelineUpgradeRunOut(
+        id=str(run.id),
+        pipeline_id=str(run.pipeline_id),
+        status=run.status,
+        upgrade_plan_id=str(run.upgrade_plan_id) if run.upgrade_plan_id else None,
+    )
 
 @router.get("/pipeline-upgrade-runs")
 def list_pipeline_upgrade_runs(pipeline_id: Optional[str] = None, db: Session = Depends(get_db)) -> List[Dict[str, Any]]:

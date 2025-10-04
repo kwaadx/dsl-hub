@@ -50,11 +50,11 @@ def main() -> None:
             schema = _fallback_schema
 
         # upsert schema_def by name+version
-        sdef = db.execute(
+        schema_def = db.execute(
             select(SchemaDef).where(SchemaDef.name == "dsl-core", SchemaDef.version == "1.0.0")
         ).scalar_one_or_none()
-        if not sdef:
-            sdef = SchemaDef(
+        if not schema_def:
+            schema_def = SchemaDef(
                 id=str(uuid.uuid4()),
                 name="dsl-core",
                 version="1.0.0",
@@ -62,21 +62,21 @@ def main() -> None:
                 json=schema,
                 compat_with=[],
             )
-            db.add(sdef)
+            db.add(schema_def)
             db.flush()
         else:
             # Keep the same id/version but refresh JSON with the latest loaded schema
-            sdef.json = schema
+            schema_def.json = schema
             db.flush()
 
         # upsert channel 'stable'
         ch = db.execute(select(SchemaChannel).where(SchemaChannel.name == "stable")).scalar_one_or_none()
         if not ch:
-            ch = SchemaChannel(id=str(uuid.uuid4()), name="stable", active_schema_def_id=sdef.id)
+            ch = SchemaChannel(id=str(uuid.uuid4()), name="stable", active_schema_def_id=schema_def.id)
             db.add(ch)
             db.flush()
         else:
-            ch.active_schema_def_id = sdef.id
+            ch.active_schema_def_id = schema_def.id
             db.flush()
 
         db.commit()

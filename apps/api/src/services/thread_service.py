@@ -9,4 +9,4 @@ class ThreadService:
     def create(self, flow_id: str):
         tid = str(uuid.uuid4())
         t = self.repo.create(tid, flow_id)
-        return {"id": str(t.id), "flow_id": str(t.flow_id), "status": t.status, "started_at": t.started_at.isoformat()}
+        return dict(id=str(t.id), flow_id=str(t.flow_id), status=t.status, started_at=t.started_at.isoformat())

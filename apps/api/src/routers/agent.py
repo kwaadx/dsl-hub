@@ -14,7 +14,7 @@ import asyncio, uuid
 router = APIRouter(prefix="/threads", tags=["agent"]) 
 
 @router.get("/{thread_id}/events")
-async def sse_events(thread_id: str, request: Request):
+async def sse_events(thread_id: str, request: Request) -> Response:
     last_id = request.headers.get("Last-Event-ID")
     if last_id:
         try:
@@ -40,7 +40,8 @@ async def agent_run(thread_id: str, payload: AgentRunIn) -> Union[AgentRunAck, S
         await bus.publish(thread_id, "suggestion", cand)
         try:
             AGENT_RUNS.labels(mode="suggestion").inc()
-        except Exception:
+        except (ValueError, TypeError):
+            # Ignore metrics errors but avoid broad exception suppression
             pass
         # Persist GenerationRun quickly
         db = SessionLocal()
@@ -59,7 +60,8 @@ async def agent_run(thread_id: str, payload: AgentRunIn) -> Union[AgentRunAck, S
     # Otherwise: enqueue full async FSM run and return ack
     try:
         AGENT_RUNS.labels(mode="fsm").inc()
-    except Exception:
+    except (ValueError, TypeError):
+        # Ignore metrics errors but avoid broad exception suppression
         pass
     # Acknowledge immediately
     asyncio.create_task(AgentRunner(SessionLocal).run(flow_id, thread_id, payload.user_message, payload.options or {}, run_id=run_id))

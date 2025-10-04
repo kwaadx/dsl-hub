@@ -18,10 +18,10 @@ def list_for_thread(db: Session, thread_id: str) -> List[ThreadSummary]:
 
 def payload(ts: ThreadSummary) -> Dict[str, Any]:
     """Standard API payload for a ThreadSummary row."""
-    return {
-        "id": str(ts.id),
-        "kind": ts.kind,
-        "content": ts.content,
-        "covering_from": ts.covering_from.isoformat() if ts.covering_from else None,
-        "covering_to": ts.covering_to.isoformat() if ts.covering_to else None,
-    }
+    return dict(
+        id=str(ts.id),
+        kind=ts.kind,
+        content=ts.content,
+        covering_from=ts.covering_from.isoformat() if ts.covering_from else None,
+        covering_to=ts.covering_to.isoformat() if ts.covering_to else None,
+    )

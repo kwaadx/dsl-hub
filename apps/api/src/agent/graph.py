@@ -53,11 +53,11 @@ class AgentRunner:
             fs = get_active_flow_summary(db, flow_id)
             ap = db.execute(select(Pipeline).where(Pipeline.flow_id == flow_id, Pipeline.is_published == True).limit(
                 1)).scalar_one_or_none()
-            return {
-                "schema_def": schema_def,
-                "flow_summary": (fs.content if fs else None),
-                "active_pipeline": (ap.content if ap else None),
-            }
+            return dict(
+                schema_def=schema_def,
+                flow_summary=(fs.content if fs else None),
+                active_pipeline=(ap.content if ap else None),
+            )
         finally:
             db.close()
 
@@ -130,7 +130,7 @@ class AgentRunner:
             s["draft"] = draft
             _tick("generate", "succeeded", result={"draft_head": list(draft.keys())})
             await bus.publish(s["thread_id"], "agent.msg",
-                              {"role": "assistant", "format": "markdown", "content": {"text": "Генерую пайплайн…"}})
+                              {"role": "assistant", "format": "markdown", "content": {"text": "Generating pipeline..."}})
             await bus.publish(s["thread_id"], "run.stage",
                               {"run_id": s["run_id"], "stage": "generate", "status": "succeeded"})
             return s
@@ -143,7 +143,7 @@ class AgentRunner:
             s["notes"] = notes
             _tick("self_check", "succeeded", result={"notes": notes})
             await bus.publish(s["thread_id"], "agent.msg", {"role": "assistant", "format": "markdown",
-                                                            "content": {"text": "Перевіряю узгодженість…"}})
+                                                            "content": {"text": "Checking consistency..."}})
             await bus.publish(s["thread_id"], "agent.msg", {"role": "assistant", "format": "json",
                                                             "content": cast(Dict[str, Any], s.get("notes") or {})})
             await bus.publish(s["thread_id"], "run.stage",

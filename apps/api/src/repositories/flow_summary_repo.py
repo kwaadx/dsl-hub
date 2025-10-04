@@ -16,9 +16,9 @@ def get_active(db: Session, flow_id: str) -> Optional[FlowSummary]:
 def active_payload(fs: Optional[FlowSummary]) -> Dict[str, Any]:
     """Return API payload for an active flow summary (or default if missing)."""
     if not fs:
-        return {"version": 0, "content": {}, "last_message_id": None}
-    return {
-        "version": fs.version,
-        "content": fs.content,
-        "last_message_id": str(fs.last_message_id) if fs.last_message_id else None,
-    }
+        return dict(version=0, content={}, last_message_id=None)
+    return dict(
+        version=fs.version,
+        content=fs.content,
+        last_message_id=str(fs.last_message_id) if fs.last_message_id else None,
+    )

@@ -5,7 +5,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import Message
 import time, hashlib
-from typing import Dict, Tuple, Any, List
+from typing import Dict, Tuple, List
 
 from .error import AppError
 from ..config import settings
@@ -16,7 +16,7 @@ _CACHE: Dict[Tuple[str, str, str], Tuple[float, str, int, Dict[str, str], bytes,
 try:
     # Optional metric; if Prometheus not configured, ignore
     from ..metrics import IDEMPOTENCY_CACHE_ENTRIES  # type: ignore
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     IDEMPOTENCY_CACHE_ENTRIES = None  # type: ignore
 
 
@@ -37,7 +37,7 @@ def _sweep_cache(ttl: float, max_entries: int) -> None:
     for k in expired:
         _CACHE.pop(k, None)
     # enforce size cap
-    if max_entries > 0 and len(_CACHE) > max_entries:
+    if 0 < max_entries < len(_CACHE):
         # sort by ts ascending (oldest first)
         items = sorted(_CACHE.items(), key=lambda it: it[1][0])
         to_remove = len(_CACHE) - max_entries
@@ -47,7 +47,7 @@ def _sweep_cache(ttl: float, max_entries: int) -> None:
     try:
         if IDEMPOTENCY_CACHE_ENTRIES is not None:
             IDEMPOTENCY_CACHE_ENTRIES.set(len(_CACHE))
-    except Exception:
+    except (ValueError, TypeError, RuntimeError):
         pass
 
 
@@ -62,7 +62,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                 body_hash = _sha256_hex(body)
 
                 async def receive() -> Message:
-                    return {"type": "http.request", "body": body, "more_body": False}
+                    return dict(type="http.request", body=body, more_body=False)
 
                 # Rebuild request with restored body
                 request = Request(request.scope, receive)
@@ -85,10 +85,9 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                 # Not cached or expired → process and cache
                 resp = await call_next(request)
                 # Attempt to read response body bytes (works for standard JSONResponse)
-                content_bytes: bytes = b""
                 try:
-                    content_bytes = resp.body if isinstance(resp.body, (bytes, bytearray)) else bytes(resp.body or b"")
-                except Exception:
+                    content_bytes: bytes = resp.body if isinstance(resp.body, (bytes, bytearray)) else bytes(resp.body or b"")
+                except (AttributeError, TypeError, ValueError):
                     # Fall back: do not cache if body can't be read
                     return resp
                 headers = {k.decode() if isinstance(k, bytes) else k: (v.decode() if isinstance(v, bytes) else v)

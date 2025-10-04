@@ -9,7 +9,7 @@ class PipelineRepo:
 
     def list_for_flow(self, flow_id: str, published: Optional[bool] = None) -> List[Pipeline]:
         stmt = select(Pipeline).where(Pipeline.flow_id == flow_id)
-        if published is True:
+        if published:
             stmt = stmt.where(Pipeline.is_published == True)
         elif published is False:
             stmt = stmt.where(Pipeline.is_published == False)

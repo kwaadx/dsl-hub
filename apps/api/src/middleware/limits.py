@@ -23,7 +23,7 @@ class SizeLimitMiddleware(BaseHTTPMiddleware):
                 try:
                     size = int(cl)
                 except ValueError:
-                    size = None  # ignore malformed value; let it pass
+                    size = None
                 if size is not None and size > int(getattr(settings, "MAX_JSON_SIZE", 1048576)):
                     raise AppError(status=413, code="PAYLOAD_TOO_LARGE",
                                    message=f"Request body too large: {size} > {settings.MAX_JSON_SIZE}")

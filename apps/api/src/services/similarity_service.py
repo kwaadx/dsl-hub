@@ -12,12 +12,13 @@ class SimilarityService:
     def __init__(self, threshold: float | None = None):
         self.threshold = float(threshold) if threshold is not None else float(settings.SIMILARITY_THRESHOLD)
 
-    def _canonical_hash(self, data: Any) -> bytes | None:
+    @staticmethod
+    def _canonical_hash(data: Any) -> bytes | None:
         try:
             if isinstance(data, (dict, list)):
                 canonical = json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
                 return hashlib.sha256(canonical).digest()
-        except Exception:
+        except (TypeError, ValueError, UnicodeError):
             return None
         return None
 
@@ -48,7 +49,7 @@ class SimilarityService:
                         .first()
                     )
                     if p:
-                        return {"pipeline_id": str(p.id), "version": p.version, "score": 1.0}
+                        return dict(pipeline_id=str(p.id), version=p.version, score=1.0)
 
             # 2) TRGM similarity on generated content_text column
             query_text = str(user_message)
@@ -76,7 +77,7 @@ class SimilarityService:
                     best = (p, s_val)
             if best and best[1] >= self.threshold:
                 p, s_val = best
-                return {"pipeline_id": str(p.id), "version": p.version, "score": round(s_val, 4)}
+                return dict(pipeline_id=str(p.id), version=p.version, score=round(s_val, 4))
             return None
         except SQLAlchemyError:
             # pg_trgm or similarity() may not be available — fallback to no suggestion

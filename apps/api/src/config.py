@@ -4,7 +4,6 @@ from typing import Optional
 
 from pydantic_settings import BaseSettings
 from pydantic import Field
-from sqlalchemy.engine import URL
 
 
 def _assemble_dsn() -> str:

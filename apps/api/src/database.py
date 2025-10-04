@@ -20,7 +20,7 @@ if schema:
         raise ValueError(f"Invalid schema name in DATABASE_URL: {schema!r}")
 
     @event.listens_for(engine, "connect")
-    def set_search_path(dbapi_connection, connection_record):
+    def set_search_path(dbapi_connection, _connection_record):
         with dbapi_connection.cursor() as cur:
             cur.execute(f"SET search_path TO {schema}")
 

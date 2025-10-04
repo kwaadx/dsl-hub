@@ -124,12 +124,12 @@ class SummaryService:
             # Active flow summary
             from ..repositories.flow_summary_repo import get_active as get_active_flow_summary
             fs = get_active_flow_summary(self.db, str(t.flow_id))
-            return {
-                "ok": True,
-                "thread_id": thread_id,
-                "thread_summary_id": str(last_ts.id) if last_ts else None,
-                "flow_summary": {"id": str(fs.id), "version": fs.version} if fs else {"id": None, "version": 0},
-            }
+            return dict(
+                ok=True,
+                thread_id=thread_id,
+                thread_summary_id=str(last_ts.id) if last_ts else None,
+                flow_summary=dict(id=str(fs.id), version=fs.version) if fs else dict(id=None, version=0),
+            )
         # Summarize thread
         ts = await self.run_thread_summary(thread_id)
         # Compute last message id once
@@ -142,9 +142,9 @@ class SummaryService:
         t.status = "SUCCESS"
         t.closed_at = datetime.now(UTC)
         self.db.flush()
-        return {
-            "ok": True,
-            "thread_id": thread_id,
-            "thread_summary_id": str(ts.id),
-            "flow_summary": {"id": str(fs.id), "version": fs.version}
-        }
+        return dict(
+            ok=True,
+            thread_id=thread_id,
+            thread_summary_id=str(ts.id),
+            flow_summary=dict(id=str(fs.id), version=fs.version)
+        )

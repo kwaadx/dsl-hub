@@ -20,4 +20,4 @@ class FlowService:
     def create(self, slug: str, name: str) -> Dict[str, Any]:
         fid = str(uuid.uuid4())
         f = self.repo.create(fid, slug, name, meta={})
-        return {"id": str(f.id), "slug": f.slug, "name": f.name}
+        return dict(id=str(f.id), slug=f.slug, name=f.name)
