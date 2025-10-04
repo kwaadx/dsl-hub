@@ -12,3 +12,4 @@ langchain-core>=0.3
 python-dotenv>=1.0
 openai>=1.45.0
 prometheus-client>=0.20
+psutil>=5.9

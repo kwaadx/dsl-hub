@@ -1,7 +1,7 @@
 # Minimal idempotent init script: ensure one schema_def (v1.0.0) and a schema_channel('stable')
-from src.database import SessionLocal, Base, engine
-from src.models import SchemaDef, SchemaChannel
-from src.config import settings
+from ..database import SessionLocal, Base, engine
+from ..models import SchemaDef, SchemaChannel
+from ..config import settings
 from sqlalchemy import select
 import uuid
 import json
@@ -80,7 +80,7 @@ def main() -> None:
             db.flush()
 
         db.commit()
-        print("Init/seed OK")
+        print("Init OK")
     finally:
         db.close()
 

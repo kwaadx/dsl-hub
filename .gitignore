@@ -81,6 +81,7 @@ docker-compose.override.yml
 
 # --- IDEs & Editors ---
 .idea/
+.junie/
 *.iml
 *.ipr
 *.iws

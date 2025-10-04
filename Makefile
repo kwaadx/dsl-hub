@@ -11,7 +11,7 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 # ───────────────────────────────────────────────
-# ⚙️ Globals
+# ⚙️ Globals (override via env or CLI)
 # ───────────────────────────────────────────────
 PROJECT        ?= $(or $(COMPOSE_PROJECT_NAME),dsl-hub)
 COMPOSE_FILE   ?= docker-compose.yml
@@ -20,6 +20,7 @@ SERVICES       ?= api web db dozzle runtime drivers
 CONTAINERS     ?= dsl-hub-api dsl-hub-web dsl-hub-db dsl-hub-dozzle dsl-hub-runtime dsl-hub-drivers
 VOLUMES        ?= db_data web_node_modules runtime_queue
 
+# Auto-detect Compose v2 vs v1
 DOCKER_COMPOSE := $(if $(shell docker compose version >/dev/null 2>&1 && echo ok),docker compose,docker-compose)
 
 # ───────────────────────────────────────────────
@@ -55,7 +56,7 @@ endef
 # ───────────────────────────────────────────────
 help: ## Show available targets
 	@echo -e "$(CYAN)Available targets$(RESET):\n"
-	@awk 'BEGIN {FS":.*##"} /^[a-zA-Z0-9_%-]+:.*##/ {printf "  \033[36m%-24s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS":.*##"} /^[a-zA-Z0-9_%-]+:.*##/ {printf "  \033[36m%-26s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo
 
 # ───────────────────────────────────────────────
@@ -88,7 +89,7 @@ ps: ## Show container status
 logs: ## Tail logs for all services
 	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) logs -f --tail=200
 
-logs-%: ## Tail logs for specific service (ex: make logs-api)
+logs-%: ## Tail logs for a specific service (ex: make logs-api)
 	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) logs -f --tail=200 $*
 
 # ───────────────────────────────────────────────
@@ -104,37 +105,49 @@ enter-%: ## Shell into container by name (ex: make enter-db)
 	@docker exec -it dsl-hub-$* sh || docker exec -it dsl-hub-$* bash
 
 # ───────────────────────────────────────────────
-# 🧹 Docker Utilities
+# 🧹 Docker Utilities (project scoped)
 # ───────────────────────────────────────────────
-clean-docker: ## Remove full stack (containers, volumes, networks, images)
+clean-docker: ## Remove full stack (containers, volumes, networks, images) for this project
+	$(call INFO,Tearing down compose stack ...)
 	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) down -v --rmi local --remove-orphans || true
+
+	$(call INFO,Force-disconnecting anything left on network '$(NETWORK)' ...)
 	@for cid in $$(docker ps -aq --filter "network=$(NETWORK)"); do \
 		docker network disconnect -f "$(NETWORK)" $$cid || true; \
 	done
+
+	$(call INFO,Removing network/containers/volumes ...)
 	@docker network rm "$(NETWORK)" 2>/dev/null || true
 	@docker rm -f $(CONTAINERS) 2>/dev/null || true
 	@docker volume rm -f $(VOLUMES) 2>/dev/null || true
+
+	$(call INFO,Removing project images ...)
+	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) images -q | xargs -r docker rmi -f
 	@docker images -q --filter "label=com.docker.compose.project=$(PROJECT)" | xargs -r docker rmi -f
 	@docker images -q --filter "dangling=true" | xargs -r docker rmi -f
+
 	$(call SUCCESS,Project cleanup completed.)
 
-clean-service: ## Remove one service (SERVICE=api/web/db/...)
+clean-service: ## Remove one service (SERVICE=api/web/db/...) incl. its image
 	@if [ -z "$(SERVICE)" ]; then \
 		echo -e "$(RED)[ERROR]$(RESET) Set SERVICE=api|web|db|dozzle|runtime|drivers"; exit 1; \
 	fi
+	$(call INFO,Removing service '$(SERVICE)' ...)
 	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) stop $(SERVICE) || true
 	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) rm -f $(SERVICE) || true
 	@docker images -q --filter "label=com.docker.compose.project=$(PROJECT)" --filter "label=com.docker.compose.service=$(SERVICE)" | xargs -r docker rmi -f
 	$(call SUCCESS,Service '$(SERVICE)' cleaned.)
 
-clean-container: ## Remove one container by full name (CONTAINER=dsl-hub-api)
+clean-container: ## Remove a single container by full name (CONTAINER=dsl-hub-api)
 	@if [ -z "$(CONTAINER)" ]; then \
 		echo -e "$(RED)[ERROR]$(RESET) Set CONTAINER=dsl-hub-<name>"; exit 1; \
 	fi
+	$(call INFO,Removing container $(CONTAINER) ...)
 	@docker rm -f "$(CONTAINER)" 2>/dev/null || true
-	$(call SUCCESS,Container removed.)
+	$(call SUCCESS,Container removed (if existed).)
 
-clean-network: ## Force remove network (NETWORK=...)
+clean-network: ## Force remove the compose network (NETWORK=...)
+	$(call INFO,Removing network '$(NETWORK)' ...)
 	@for cid in $$(docker ps -aq --filter "network=$(NETWORK)"); do \
 		docker network disconnect -f "$(NETWORK)" $$cid || true; \
 	done
@@ -142,29 +155,55 @@ clean-network: ## Force remove network (NETWORK=...)
 	$(call SUCCESS,Network removed.)
 
 clean-volumes: ## Remove project volumes only
+	$(call INFO,Removing project volumes ...)
 	@docker volume rm -f $(VOLUMES) 2>/dev/null || true
 	$(call SUCCESS,Volumes removed.)
 
-prune-dangling: ## Remove dangling images/volumes/networks
+prune-dangling: ## Prune dangling images/volumes/networks
+	$(call INFO,Pruning dangling resources ...)
 	@docker image prune -f
 	@docker volume prune -f
 	@docker network prune -f
 	$(call SUCCESS,Prune completed.)
 
-clear-docker-logs: ## Truncate Docker json logs
+clear-docker-logs: ## Truncate Docker json logs (may require sudo)
+	$(call INFO,Clearing Docker logs ...)
 	@sudo find /var/lib/docker/containers/ -name '*-json.log' -exec truncate -s 0 {} \; 2>/dev/null || true
 	$(call SUCCESS,Logs cleared.)
+
+# ───────────────────────────────────────────────
+# 🧱 Rebuild / Reset helpers
+# ───────────────────────────────────────────────
+build-no-cache: ## Build all images with --no-cache and --pull, then start
+	$(call INFO,Building with --no-cache and pulling latest base images ...)
+	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) build --no-cache --pull
+	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) up -d
+	$(call SUCCESS,Fresh build completed.)
+
+reset: ## Full reset: clean project, prune build cache, rebuild from scratch
+	$(call WARNING,This will wipe containers/volumes/images and build cache for this project!)
+	@$(MAKE) clean-docker
+	@docker builder prune -af || true
+	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) build --no-cache --pull
+	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) up -d
+	$(call SUCCESS,Reset completed: fresh images are running.)
+
+prune-build-cache: ## Remove Docker build cache (buildx)
+	$(call INFO,Pruning Docker build cache ...)
+	@docker builder prune -af
+	$(call SUCCESS,Build cache pruned.)
 
 # ───────────────────────────────────────────────
 # 🗄️ Database Helpers
 # ───────────────────────────────────────────────
 db-fresh: ## Drop Postgres volume and start db fresh
+	$(call WARNING,This will DELETE Postgres volume 'db_data'!)
 	@docker volume rm -f db_data 2>/dev/null || true
 	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) up -d db
 	$(call SUCCESS,Database started with fresh volume.)
 
 db-shell: ## Open psql shell in db container
-	@docker exec -it dsl-hub-db psql -U $$DB_USER -d $$DB_NAME || docker exec -it dsl-hub-db psql -U postgres -d postgres
+	@docker exec -it dsl-hub-db psql -U $$DB_USER -d $$DB_DB || docker exec -it dsl-hub-db psql -U postgres -d postgres
 
 # ───────────────────────────────────────────────
 # ✅ PHONY
@@ -174,4 +213,5 @@ db-shell: ## Open psql shell in db container
 	start-services stop-services restart-services build-services \
 	enter-web enter-api enter-% \
 	clean-docker clean-service clean-container clean-network clean-volumes prune-dangling clear-docker-logs \
+	build-no-cache reset prune-build-cache \
 	db-fresh db-shell

@@ -1,70 +1,58 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, AliasChoices
+from __future__ import annotations
+import os
 from typing import Optional
 
+from pydantic_settings import BaseSettings
+from pydantic import Field
+
+
+def _assemble_dsn() -> str:
+    user = os.getenv("DB_USER", "postgres")
+    password = os.getenv("DB_PASSWORD", "postgres")
+    host = os.getenv("DB_HOST", "db")
+    port = os.getenv("DB_PORT", "5432")
+    name = os.getenv("DB_NAME", "dsl_hub")
+    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{name}"
+
+
+def _get_bool(name: str, default: bool) -> bool:
+    v = os.getenv(name)
+    if v is None:
+        return default
+    v = v.strip().lower()
+    return v in ("1", "true", "yes", "on")
+
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False)
+    # Database config (завжди з DB_*)
+    DB_HOST: str = Field(default="db")
+    DB_PORT: int = Field(default=5432)
+    DB_NAME: str = Field(default="dsl_hub")
+    DB_USER: str = Field(default="postgres")
+    DB_PASSWORD: str = Field(default="postgres")
 
-    DATABASE_URL: str = Field(
-        default="postgresql+psycopg2://postgres:postgres@db:5432/dsl_hub",
-        description="PostgreSQL DSN",
-        validation_alias=AliasChoices("API_DATABASE_URL", "DATABASE_URL"),
-    )
-    APP_SCHEMA_CHANNEL: str = Field(
-        default="stable",
-        validation_alias=AliasChoices("API_APP_SCHEMA_CHANNEL", "APP_SCHEMA_CHANNEL"),
-    )
-    SIMILARITY_THRESHOLD: float = Field(
-        default=0.75,
-        validation_alias=AliasChoices("API_SIMILARITY_THRESHOLD", "SIMILARITY_THRESHOLD"),
-    )
-    SSE_PING_INTERVAL: int = Field(
-        default=15,
-        validation_alias=AliasChoices("API_SSE_PING_INTERVAL", "SSE_PING_INTERVAL"),
-    )
-    APP_VERSION: str = Field(
-        default="0.1.0", description="Application version reported by /version",
-        validation_alias=AliasChoices("API_APP_VERSION", "APP_VERSION"),
-    )
-    MAX_JSON_SIZE: int = Field(
-        default=1048576, description="Max JSON request body size in bytes",
-        validation_alias=AliasChoices("API_MAX_JSON_SIZE", "MAX_JSON_SIZE"),
-    )
+    @property
+    def dsn(self) -> str:
+        """DSN для SQLAlchemy/psycopg2."""
+        return _assemble_dsn()
 
-    # API initialization options
-    INIT_ON_START: bool = Field(
-        default=True,
-        description="Run DB/schema initialization on API container start",
-        validation_alias=AliasChoices("API_INIT_ON_START", "INIT_ON_START"),
-    )
-    INIT_SCHEMA_PATH: Optional[str] = Field(
-        default=None,
-        description="Path to initial schema JSON file to seed (inside API container)",
-        validation_alias=AliasChoices("API_INIT_SCHEMA_PATH", "INIT_SCHEMA_PATH"),
-    )
+    # App options (load from environment with API_* prefix where applicable)
+    SCHEMA_CHANNEL: str = os.getenv("API_SCHEMA_CHANNEL", "stable")
+    SIMILARITY_THRESHOLD: float = float(os.getenv("API_SIMILARITY_THRESHOLD", "0.75"))
+    SSE_PING_INTERVAL: int = int(os.getenv("API_SSE_PING_INTERVAL", "15"))
+    APP_VERSION: str = os.getenv("APP_VERSION", "0.1.0")
+    MAX_JSON_SIZE: int = int(os.getenv("API_MAX_JSON_SIZE", "1048576"))
 
-    # LLM provider config
-    LLM_PROVIDER: str = Field(
-        default="mock", description="LLM provider: 'mock' or 'openai'",
-        validation_alias=AliasChoices("API_LLM_PROVIDER", "LLM_PROVIDER"),
-    )
-    LLM_TIMEOUT: int = Field(
-        default=30, description="LLM request timeout (seconds)",
-        validation_alias=AliasChoices("API_LLM_TIMEOUT", "LLM_TIMEOUT"),
-    )
+    # Init seed
+    INIT_SCHEMA_ON_START: bool = _get_bool("API_INIT_SCHEMA_ON_START", True)
+    INIT_SCHEMA_PATH: Optional[str] = os.getenv("API_INIT_SCHEMA_PATH") or None
 
-    # OpenAI config (used when LLM_PROVIDER == 'openai')
-    OPENAI_API_KEY: Optional[str] = Field(
-        default=None, description="OpenAI API key",
-        validation_alias=AliasChoices("API_OPENAI_API_KEY", "OPENAI_API_KEY"),
-    )
-    OPENAI_MODEL: str = Field(
-        default="gpt-4o-mini", description="OpenAI model name",
-        validation_alias=AliasChoices("API_OPENAI_MODEL", "OPENAI_MODEL"),
-    )
-    OPENAI_BASE_URL: Optional[str] = Field(
-        default=None, description="Override base URL (e.g., for Azure or proxy)",
-        validation_alias=AliasChoices("API_OPENAI_BASE_URL", "OPENAI_BASE_URL"),
-    )
+    # LLM
+    LLM_PROVIDER: str = os.getenv("API_LLM_PROVIDER", "mock")
+    LLM_TIMEOUT: int = int(os.getenv("API_LLM_TIMEOUT", "30"))
+    OPENAI_API_KEY: Optional[str] = os.getenv("API_OPENAI_API_KEY") or None
+    OPENAI_MODEL: str = os.getenv("API_OPENAI_MODEL", "gpt-4o-mini")
+    OPENAI_BASE_URL: Optional[str] = os.getenv("API_OPENAI_BASE_URL") or None
+
 
 settings = Settings()

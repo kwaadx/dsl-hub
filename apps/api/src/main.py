@@ -46,3 +46,13 @@ app.include_router(summaries.router)
 app.include_router(schemas.router)
 app.include_router(agent.router)
 app.include_router(upgrades.router)
+
+# Startup init
+@app.on_event("startup")
+def _init_schema_on_start():
+    if settings.INIT_SCHEMA_ON_START:
+        try:
+            from .schemas.init import main as schema_init_main
+            schema_init_main()
+        except Exception as e:
+            print(f"[startup] schema init failed: {e}")

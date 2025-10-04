@@ -6,7 +6,7 @@ import re
 
 from .config import settings
 
-url = make_url(settings.DATABASE_URL)
+url = make_url(settings.dsn)
 schema = None
 if "schema" in url.query:
     q = dict(url.query)
