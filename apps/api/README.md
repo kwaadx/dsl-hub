@@ -32,7 +32,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-4) Open `GET /healthz` to check health. Connect your frontend to the routes described in the docs.
+4) Open `GET /health` to check health. Connect your frontend to the routes described in the docs.
 
 ## Env Vars
 

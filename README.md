@@ -104,7 +104,7 @@ Backend quick start (Docker)
 - Default endpoints:
   - Web: http://localhost:${WEB_PORT:-3000}
   - API: http://localhost:${API_PORT:-8000}
-  - Health: GET /healthz
+  - Health: GET /health
   - Metrics: GET /metrics
 
 CORS and Auth
@@ -213,6 +213,6 @@ Content-Type: application/json
 Notes
 - For POST endpoints, always send a unique Idempotency-Key to enable safe retries.
 - When reconnecting to SSE with an outdated Last-Event-ID, the server returns 204 No Content; reconnect again without Last-Event-ID.
-- Health check: GET /healthz probes DB connectivity; when DB is unavailable it returns HTTP 503 with a JSON body like {"status":"degraded","db":"unhealthy", "error": "..."}.
+- Health check: GET /health probes DB connectivity; returns 200 when healthy and 503 when DB is unavailable.
 - HTTP metrics: path labels are normalized to route templates (e.g., /threads/{thread_id}) to keep Prometheus label cardinality low.
 - POST /threads/{thread_id}/close is idempotent: repeated calls will not create new summaries if the thread is already closed; the latest existing summary and active flow summary are returned.

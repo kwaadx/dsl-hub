@@ -1,5 +1,4 @@
 from fastapi import FastAPI
-from fastapi.responses import Response, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import flows, threads, pipelines, summaries, schemas, agent
 from .middleware.idempotency import IdempotencyMiddleware
@@ -9,9 +8,7 @@ from .middleware.auth import AuthMiddleware
 from .middleware.error import AppError, handle_app_error, handle_http_error, handle_generic_error
 from fastapi import HTTPException as FastHTTPException
 from .config import settings
-from .metrics import prometheus_body
-from sqlalchemy import text
-from typing import Any
+from .routers.system import router as system_router
 
 # Optional routers imported lazily to avoid circulars
 from .routers import upgrades
@@ -37,31 +34,8 @@ app.add_exception_handler(AppError, handle_app_error)
 app.add_exception_handler(FastHTTPException, handle_http_error)
 app.add_exception_handler(Exception, handle_generic_error)
 
-@app.get("/healthz")
-def healthz() -> dict[str, Any] | JSONResponse:
-    # Probe database connectivity; return 200 if OK, 503 if DB unavailable
-    try:
-        from .database import SessionLocal
-        db = SessionLocal()
-        try:
-            db.execute(text("SELECT 1"))
-        finally:
-            db.close()
-        return dict(status="ok")
-    except Exception as e:
-        return JSONResponse(status_code=503, content=dict(status="degraded", db="unhealthy", error=str(e)))
-
-
-@app.get("/version")
-def version() -> dict[str, Any]:
-    return dict(app="dsl-hub", version=settings.APP_VERSION)
-
-@app.get("/metrics")
-def metrics() -> Response:
-    body, ctype = prometheus_body()
-    return Response(content=body, media_type=ctype)
-
 # Routers
+app.include_router(system_router)
 app.include_router(flows.router)
 app.include_router(threads.router)
 app.include_router(pipelines.router)

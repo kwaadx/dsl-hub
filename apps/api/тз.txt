@@ -38,7 +38,7 @@
 
 ## 3.1 Технічні службові
 
-* `GET /healthz` → `{"status":"ok"}`
+* `GET /health` → `{"status":"ok"}`
 * `GET /version` → `{"app":"dsl-hub","version":"x.y.z"}`
 
 ## 3.2 Flows / Threads / Messages
@@ -392,7 +392,7 @@ type State = {
 
 ## M0 — фундамент (1–2 дні)
 
-* Alembic up + seed, `/healthz`, `/version`.
+* Alembic up + seed, `/health`, `/version`.
   **Фронт:** індикатор онлайн.
 
 ## M1 — базові CRUD + чат без агента (1–2 дні)
