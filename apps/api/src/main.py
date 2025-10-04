@@ -13,7 +13,13 @@ from .routers.system import router as system_router
 # Optional routers imported lazily to avoid circulars
 from .routers import upgrades
 
-app = FastAPI(title="DSL Hub Backend", version=settings.APP_VERSION)
+app = FastAPI(
+    title="DSL Hub Backend",
+    version=settings.APP_VERSION,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+)
 
 # Middlewares
 # CORS comes first so that preflight requests are handled early

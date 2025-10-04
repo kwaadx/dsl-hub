@@ -1,8 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
 from ..database import get_db
-from ..services.thread_service import ThreadService
 from ..services.message_service import MessageService
 from ..dto import ThreadOut, MessageIn, MessageOut
 from ..models import Thread
@@ -10,13 +9,6 @@ from typing import Any, Dict, List
 
 router = APIRouter(prefix="/threads", tags=["threads"]) 
 
-@router.post("/by-flow/{flow_id}", response_model=ThreadOut, status_code=201, deprecated=True)
-def create_thread(flow_id: str, response: Response, db: Session = Depends(get_db)) -> ThreadOut:
-    # Deprecated: use POST /flows/{flow_id}/threads
-    response.headers["Deprecation"] = "true"
-    response.headers["Link"] = "</flows/{flow_id}/threads>; rel=successor-version"
-    svc = ThreadService(db)
-    return ThreadOut(**svc.create(flow_id))
 
 @router.get("/{thread_id}", response_model=ThreadOut)
 def get_thread(thread_id: str, db: Session = Depends(get_db)) -> ThreadOut:
