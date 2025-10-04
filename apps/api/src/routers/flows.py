@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..services.flow_service import FlowService
@@ -19,6 +19,14 @@ def list_flows(db: Session = Depends(get_db)) -> List[FlowOut]:
 def create_flow(payload: CreateFlow, db: Session = Depends(get_db)) -> FlowOut:
     svc = FlowService(db)
     return FlowOut(**svc.create(payload.slug, payload.name))
+
+@router.get("/{flow_id}", response_model=FlowOut)
+def get_flow(flow_id: str, db: Session = Depends(get_db)) -> FlowOut:
+    svc = FlowService(db)
+    row = svc.get_one(flow_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Flow not found")
+    return FlowOut(**row)
 
 @router.post("/{flow_id}/threads", response_model=ThreadOut, status_code=201)
 def create_thread_for_flow(flow_id: str, db: Session = Depends(get_db)) -> ThreadOut:

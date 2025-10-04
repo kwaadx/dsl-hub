@@ -17,6 +17,12 @@ class FlowService:
             })
         return out
 
+    def get_one(self, flow_id: str) -> Dict[str, Any] | None:
+        f = self.repo.get(flow_id)
+        if f is None:
+            return None
+        return dict(id=str(f.id), slug=f.slug, name=f.name)
+
     def create(self, slug: str, name: str) -> Dict[str, Any]:
         fid = str(uuid.uuid4())
         f = self.repo.create(fid, slug, name, meta={})

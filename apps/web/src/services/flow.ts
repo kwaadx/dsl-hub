@@ -14,201 +14,62 @@ export interface Paged<T> {
   totalPages: number;
 }
 
-const USE_FAKE = ((import.meta as any).env?.VITE_USE_FAKE_API ?? 'true') === 'true';
-
-/** Simple UUID (for newly created items). */
-function uuid(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-  return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+function slugify(input: string): string {
+  const s = input
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9\-]/g, '')
+    .replace(/\-+/g, '-')
+    .replace(/^\-+|\-+$/g, '');
+  return s || `flow-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** Cancellable delay helper using AbortSignal. */
-function delay(ms: number, signal?: AbortSignal) {
-  return new Promise<void>((resolve, reject) => {
-    const t = setTimeout(resolve, ms);
-    if (signal) {
-      const onAbort = () => {
-        clearTimeout(t);
-        const err = new Error('Aborted');
-        // @ts-ignore
-        err.name = 'AbortError';
-        reject(err);
-      };
-      if (signal.aborted) return onAbort();
-      signal.addEventListener('abort', onAbort, {once: true});
-    }
+export async function fetchFlowsApi(signal?: AbortSignal): Promise<Flow[]> {
+  return http<Flow[]>({ method: 'GET', path: '/api/flows', signal });
+}
+
+export async function fetchFlowByIdApi(id: string, signal?: AbortSignal): Promise<Flow> {
+  return http<Flow>({ method: 'GET', path: `/api/flows/${id}`, signal });
+}
+
+export async function createFlowApi(
+  payload: { name: string; slug?: string },
+  signal?: AbortSignal
+): Promise<Flow> {
+  return http<Flow, { name: string; slug: string }>({
+    method: 'POST',
+    path: '/api/flows',
+    body: { name: payload.name, slug: payload.slug ?? slugify(payload.name) },
+    signal,
   });
 }
 
-/** Deterministic hash-based id from name (stable across reloads). */
-function stableIdFromName(name: string): string {
-  // djb2 (xor) hash — fast and stable
-  let h = 5381;
-  const s = name.toLowerCase();
-  for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
-  const hex = (h >>> 0).toString(16).padStart(8, '0');
-  return `flow-${hex}`;
+export async function updateFlowApi(_id: string, _patch: Partial<Flow>, _signal?: AbortSignal): Promise<Flow> {
+  const err = new Error('Updating flows is not supported by the backend yet');
+  (err as any).code = 'NOT_IMPLEMENTED';
+  (err as any).status = 501;
+  throw err;
 }
 
-/** Seed names for the fake dataset. */
-const SEED_NAMES = [
-  'Pipeline Agent — Alpha',
-  'ROS2 Sensors Group',
-  'Outreach — Appliance',
-  'ETL — Events Ingest',
-  'LLM Playground',
-  'Vision — OCR Pipeline',
-  'Telemetry — Realtime',
-  'QA — Regression Suite',
-  'Scheduler — Cron Jobs',
-  'Sandbox — Experiments',
-] as const;
-
-/** Default (seed) dataset with stable ids derived from names. */
-const DEFAULT_FLOWS: Flow[] = SEED_NAMES.map((name) => ({
-  id: stableIdFromName(name),
-  name,
-}));
-
-/** LocalStorage persistence (per-browser). */
-const LS_KEY = 'dslhub_fake_flows_v1';
-
-function canUseLS(): boolean {
-  try {
-    return typeof window !== 'undefined' && !!window.localStorage;
-  } catch {
-    return false;
-  }
+export async function deleteFlowApi(_id: string, _signal?: AbortSignal): Promise<void> {
+  const err = new Error('Deleting flows is not supported by the backend yet');
+  (err as any).code = 'NOT_IMPLEMENTED';
+  (err as any).status = 501;
+  throw err;
 }
 
-function loadFromLS(): Flow[] | null {
-  if (!canUseLS()) return null;
-  const raw = localStorage.getItem(LS_KEY);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as Flow[];
-    if (!Array.isArray(parsed)) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function saveToLS(data: Flow[]) {
-  if (!canUseLS()) return;
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(data));
-  } catch {
-    // ignore quota/security errors in fake mode
-  }
-}
-
-/** In-memory DB (seeded from LS or defaults). */
-let DB: Flow[] = loadFromLS() ?? DEFAULT_FLOWS.slice();
-if (loadFromLS() == null) {
-  // Seed LS on first run so ids stay stable across reloads
-  saveToLS(DB);
-}
-
-/** Public helpers to reset/inspect fake DB (optional). */
-export function __resetFakeFlows() {
-  DB = DEFAULT_FLOWS.slice();
-  saveToLS(DB);
-}
-
-export function __getFakeFlows(): Flow[] {
-  return DB.map((f) => ({...f}));
-}
-
-/** Fetch all flows. */
-export async function fetchFlowsApi(signal?: AbortSignal): Promise<Flow[]> {
-  if (!USE_FAKE) {
-    return http<Flow[]>({ method: 'GET', path: '/api/flows', signal });
-  }
-  await delay(300 + Math.floor(Math.random() * 300), signal);
-  return DB.map((f) => ({...f}));
-}
-
-/** Fetch single flow by id. */
-export async function fetchFlowByIdApi(id: string, signal?: AbortSignal): Promise<Flow> {
-  if (!USE_FAKE) {
-    return http<Flow>({ method: 'GET', path: `/api/flows/${id}`, signal });
-  }
-  await delay(200 + Math.floor(Math.random() * 200), signal);
-  const found = DB.find((f) => f.id === id);
-  if (!found) {
-    const err = new Error('Flow not found') as Error & { status?: number };
-    err.status = 404;
-    throw err;
-  }
-  return {...found};
-}
-
-/** Create flow. */
-export async function createFlowApi(payload: { name: string; slug?: string }, signal?: AbortSignal): Promise<Flow> {
-  if (!USE_FAKE) {
-    return http<Flow, typeof payload>({ method: 'POST', path: '/api/flows', body: payload, signal });
-  }
-  await delay(200 + Math.floor(Math.random() * 300), signal);
-  const item: Flow = {id: uuid(), name: payload.name};
-  DB.unshift(item);
-  saveToLS(DB);
-  return {...item};
-}
-
-/** Update flow. */
-export async function updateFlowApi(id: string, patch: Partial<Flow>, signal?: AbortSignal): Promise<Flow> {
-  if (!USE_FAKE) {
-    return http<Flow, Partial<Flow>>({ method: 'PATCH', path: `/api/flows/${id}`, body: patch, signal });
-  }
-  await delay(200 + Math.floor(Math.random() * 300), signal);
-  const idx = DB.findIndex((f) => f.id === id);
-  if (idx === -1) {
-    const err = new Error('Flow not found') as Error & { status?: number };
-    err.status = 404;
-    throw err;
-  }
-  DB[idx] = {...DB[idx], ...patch};
-  saveToLS(DB);
-  return {...DB[idx]};
-}
-
-/** Delete flow. */
-export async function deleteFlowApi(id: string, signal?: AbortSignal): Promise<void> {
-  if (!USE_FAKE) {
-    await http<void>({ method: 'DELETE', path: `/api/flows/${id}`, signal });
-    return;
-  }
-  await delay(150 + Math.floor(Math.random() * 200), signal);
-  const idx = DB.findIndex((f) => f.id === id);
-  if (idx !== -1) {
-    DB.splice(idx, 1);
-    saveToLS(DB);
-  }
-}
-
-/** Paged fetch with optional search. */
 export async function fetchFlowsPagedApi(
   params: { page: number; pageSize?: number; q?: string },
   signal?: AbortSignal
 ): Promise<Paged<Flow>> {
-  const {page, pageSize = 5, q = ''} = params;
-  if (!USE_FAKE) {
-    const items = await http<Flow[]>({ method: 'GET', path: '/api/flows', query: { page, pageSize, q }, signal });
-    return { items, page, pageSize, totalItems: 0, totalPages: 1 };
-  }
-  await delay(250 + Math.floor(Math.random() * 250), signal);
-
+  const { page, pageSize = 5, q = '' } = params;
+  const all = await http<Flow[]>({ method: 'GET', path: '/api/flows', signal });
   const needle = q.trim().toLowerCase();
-  const filtered = needle ? DB.filter((f) => f.name.toLowerCase().includes(needle)) : DB;
-
+  const filtered = needle ? all.filter((f) => f.name.toLowerCase().includes(needle)) : all;
   const start = Math.max(0, (page - 1) * pageSize);
-  const items = filtered.slice(start, start + pageSize).map((f) => ({...f}));
-
+  const items = filtered.slice(start, start + pageSize);
   const totalItems = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-
-  return {items, page, pageSize, totalItems, totalPages};
+  return { items, page, pageSize, totalItems, totalPages };
 }
