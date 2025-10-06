@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { useCreateFlow } from '@/composables/data/flows/useCreateFlow'
+import {ref, computed, watch} from 'vue'
+import {useRouter} from 'vue-router'
+import {useCreateFlow} from '@/composables/data/flows/useCreateFlow'
 
 const visible = ref(false)
 const name = ref('')
@@ -56,11 +56,10 @@ async function onSave() {
   try {
     const trimmedName = name.value.trim()
     const finalSlug = slug.value ? slugify(slug.value) : undefined
-    const flow = await create.mutateAsync({ name: trimmedName, slug: finalSlug })
+    const flow = await create.mutateAsync({name: trimmedName, slug: finalSlug})
     visible.value = false
-    await router.push({ name: 'FlowRoot', params: { slug: flow.slug } })
+    await router.push({name: 'FlowRoot', params: {slug: flow.slug}})
   } catch (e: any) {
-    // опціонально: красивіше повідомлення для 409/validation
     const msg = e?.message || 'Failed to create flow'
     errorMsg.value = /409|exists/i.test(String(msg)) ? 'Slug already exists. Try another.' : msg
   } finally {
@@ -70,7 +69,11 @@ async function onSave() {
 </script>
 
 <template>
-  <Button icon="pi pi-plus" class="" @click="visible = true" link/>
+  <div class="p-3 flex justify-end items-center gap-3">
+    <div class="text-gray-500">New Flow</div>
+    <Button icon="pi pi-plus" @click="visible = true" rounded size="small"/>
+  </div>
+
   <Dialog
     v-model:visible="visible"
     modal
@@ -117,8 +120,9 @@ async function onSave() {
       </div>
 
       <div class="flex justify-end gap-2 pt-2">
-        <Button type="button" label="Cancel" severity="secondary" :disabled="isSubmitting" @click="visible = false" />
-        <Button type="submit" label="Save" :loading="isSubmitting" :disabled="!canSubmit" />
+        <Button type="button" label="Cancel" severity="secondary" :disabled="isSubmitting"
+                @click="visible = false"/>
+        <Button type="submit" label="Save" :loading="isSubmitting" :disabled="!canSubmit"/>
       </div>
     </form>
   </Dialog>
