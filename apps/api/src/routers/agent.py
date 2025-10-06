@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import Response
 from typing import Union
 from ..database import SessionLocal
@@ -6,12 +6,31 @@ from ..dto import AgentRunIn, AgentRunAck, SuggestionOut
 from ..sse import sse_response, bus
 from ..agent.graph import AgentRunner
 from ..config import settings
-from ..repositories.runs_repo import RunsRepo
 from ..services.similarity_service import SimilarityService
+from ..services.llm import LLMClient
 from ..metrics import AGENT_RUNS
 import asyncio, uuid
 
-router = APIRouter(prefix="/threads", tags=["agent"]) 
+router = APIRouter(prefix="/threads", tags=["agent"])
+
+
+def get_similarity_service() -> SimilarityService:
+    return SimilarityService()
+
+
+def get_llm_client() -> LLMClient:
+    return LLMClient()
+
+
+def get_agent_runner(
+    similarity: SimilarityService = Depends(get_similarity_service),
+    llm: LLMClient = Depends(get_llm_client),
+) -> AgentRunner:
+    return AgentRunner(
+        session_factory=SessionLocal,
+        similarity_service=similarity,
+        llm_client=llm,
+    )
 
 @router.get("/{thread_id}/events")
 async def sse_events(thread_id: str, request: Request) -> Response:
@@ -26,12 +45,16 @@ async def sse_events(thread_id: str, request: Request) -> Response:
     return await sse_response(thread_id, ping_interval=settings.SSE_PING_INTERVAL, last_event_id=last_id)
 
 @router.post("/{thread_id}/agent/run", response_model=Union[AgentRunAck, SuggestionOut])
-async def agent_run(thread_id: str, payload: AgentRunIn) -> Union[AgentRunAck, SuggestionOut]:
+async def agent_run(
+    thread_id: str,
+    payload: AgentRunIn,
+    runner: AgentRunner = Depends(get_agent_runner),
+) -> Union[AgentRunAck, SuggestionOut]:
     flow_id = await _infer_flow(thread_id)
     run_id = str(uuid.uuid4())
 
     # Fast-path: synchronous suggestion (MVP stop-after-suggestion)
-    cand = SimilarityService().find_candidate(flow_id, payload.user_message)
+    cand = runner.similarity.find_candidate(flow_id, payload.user_message)
     if cand:
         # Emit SSE lifecycle for suggestion-only run
         await bus.publish(thread_id, "run.started", {"run_id": run_id, "stage": "discovery"})
@@ -44,9 +67,9 @@ async def agent_run(thread_id: str, payload: AgentRunIn) -> Union[AgentRunAck, S
             # Ignore metrics errors but avoid broad exception suppression
             pass
         # Persist GenerationRun quickly
-        db = SessionLocal()
+        db = runner.session_factory()
         try:
-            runs = RunsRepo(db)
+            runs = runner.runs_repo_factory(db)
             runs.start(run_id, flow_id, thread_id, stage="discovery", source=payload.user_message)
             runs.tick(run_id, stage="discovery", status="succeeded")
             runs.tick(run_id, stage="search_existing", status="succeeded", result={"suggestion": cand})
@@ -64,7 +87,7 @@ async def agent_run(thread_id: str, payload: AgentRunIn) -> Union[AgentRunAck, S
         # Ignore metrics errors but avoid broad exception suppression
         pass
     # Acknowledge immediately
-    asyncio.create_task(AgentRunner(SessionLocal).run(flow_id, thread_id, payload.user_message, payload.options or {}, run_id=run_id))
+    asyncio.create_task(runner.run(flow_id, thread_id, payload.user_message, payload.options or {}, run_id=run_id))
     return AgentRunAck(run_id=run_id, status="queued")
 
 async def _infer_flow(thread_id: str) -> str:
