@@ -10,7 +10,7 @@ const model = computed({
 </script>
 
 <template>
-  <div class="px-3 mb-2">
+  <div class="px-3">
     <IconField class="w-full" iconPosition="right">
       <InputText v-model="model" class="w-full pr-9" placeholder="Search..."/>
       <InputIcon

@@ -3,7 +3,7 @@ import {computed, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {useFlows} from '@/composables/data/flows/useFlows'
 import {useDeleteFlow} from '@/composables/data/flows/useDeleteFlow'
-import CreateFlow from "@/components/flow/CreateFlow.vue";
+import AsideCreate from "@/components/layout/aside/AsideCreate.vue";
 
 const route = useRoute()
 const router = useRouter()
@@ -12,15 +12,15 @@ const props = defineProps<{ search?: string }>()
 const {data, isLoading, isError, error} = useFlows()
 const flows = computed(() => data?.value ?? [])
 
-const { mutateAsync: deleteFlowAsync } = useDeleteFlow()
+const {mutateAsync: deleteFlowAsync} = useDeleteFlow()
 
 async function onDelete(flow: { id: string; name: string }) {
   const ok = window.confirm(`Delete flow "${flow.name}"? This action cannot be undone.`)
   if (!ok) return
   try {
-    await deleteFlowAsync({ id: flow.id })
+    await deleteFlowAsync({id: flow.id})
     if (route.params.id === flow.id) {
-      await router.push({ name: 'Home' })
+      await router.push({name: 'Home'})
     }
   } catch (e: any) {
     const msg = e?.message || 'Failed to delete the flow'
@@ -61,11 +61,6 @@ const filtered = computed(() => {
 function menuItems(flow: { id: string; name: string }) {
   return [
     {
-      label: 'Open', icon: 'pi pi-external-link',
-      command: () => router.push({name: 'FlowRoot', params: {id: flow.id}})
-    },
-    {separator: true},
-    {
       label: 'Rename', icon: 'pi pi-pencil',
       command: () => console.log('Rename', flow)
     },
@@ -100,8 +95,9 @@ function setOpen(flowId: string, value: boolean) {
 
 <template>
   <nav class="p-3 space-y-1">
-    <div>
-      <CreateFlow/>
+    <div class="w-full px-3 flex justify-between items-center ">
+      <div class="text-xl">Flows</div>
+      <AsideCreate/>
     </div>
     <div v-if="isLoading" class="flex items-center mt-5">
       <ProgressSpinner aria-label="Loading" class="!h-15 !w-15"/>

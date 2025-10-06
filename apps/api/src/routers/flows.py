@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..services.flow_service import FlowService
@@ -41,3 +41,12 @@ def list_flow_pipelines(flow_id: str, published: int | None = None, db: Session 
 def get_active_flow_summary(flow_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
     fs = get_active(db, flow_id)
     return active_payload(fs)
+
+@router.delete("/{flow_id}", status_code=204)
+def delete_flow(flow_id: str, db: Session = Depends(get_db)) -> Response:
+    svc = FlowService(db)
+    ok = svc.delete(flow_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Flow not found")
+    # 204 No Content
+    return Response(status_code=204)

@@ -27,3 +27,6 @@ class FlowService:
         fid = str(uuid.uuid4())
         f = self.repo.create(fid, slug, name, meta={})
         return dict(id=str(f.id), slug=f.slug, name=f.name)
+
+    def delete(self, flow_id: str) -> bool:
+        return self.repo.delete(flow_id)

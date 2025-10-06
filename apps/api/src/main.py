@@ -5,8 +5,10 @@ from .middleware.idempotency import IdempotencyMiddleware
 from .middleware.limits import SizeLimitMiddleware
 from .middleware.metrics import MetricsMiddleware
 from .middleware.auth import AuthMiddleware
-from .middleware.error import AppError, handle_app_error, handle_http_error, handle_generic_error
+from .middleware.error import AppError, handle_app_error, handle_http_error, handle_generic_error, handle_integrity_error, handle_validation_error
 from fastapi import HTTPException as FastHTTPException
+from fastapi.exceptions import RequestValidationError
+from sqlalchemy.exc import IntegrityError
 from .config import settings
 from .routers.system import router as system_router
 
@@ -39,6 +41,8 @@ app.add_middleware(MetricsMiddleware)
 # Error handlers (unified error shape)
 app.add_exception_handler(AppError, handle_app_error)
 app.add_exception_handler(FastHTTPException, handle_http_error)
+app.add_exception_handler(RequestValidationError, handle_validation_error)
+app.add_exception_handler(IntegrityError, handle_integrity_error)
 app.add_exception_handler(Exception, handle_generic_error)
 
 # Routers

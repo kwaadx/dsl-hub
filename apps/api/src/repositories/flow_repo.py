@@ -28,3 +28,11 @@ class FlowRepo:
 
     def get(self, flow_id):
         return self.db.get(Flow, flow_id)
+
+    def delete(self, flow_id: str) -> bool:
+        f = self.get(flow_id)
+        if f is None:
+            return False
+        self.db.delete(f)
+        # commit is handled by request lifecycle in get_db
+        return True
