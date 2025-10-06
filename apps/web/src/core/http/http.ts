@@ -107,10 +107,13 @@ export async function http<TResp = unknown, TBody = unknown>(
   }
 
   if (!res.ok) {
+    // Unified API error shape: { error: { code, message, details } }
+    const unified = data && typeof data === 'object' ? (data as any).error : null;
     const message =
-      (data && (data.message || data.error || data.detail)) ||
+      (unified && typeof unified.message === 'string' && unified.message) ||
+      (data && (data.message || (typeof data.error === 'string' ? data.error : null) || data.detail)) ||
       `HTTP ${res.status} ${res.statusText}`;
-    const code = data?.code ?? data?.errorCode;
+    const code = (unified && unified.code) ?? data?.code ?? data?.errorCode;
 
     throw new HttpError({
       message,

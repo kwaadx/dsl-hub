@@ -6,7 +6,7 @@ export function useCreateFlow() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: { name: string }) => createFlowApi(payload),
+    mutationFn: (payload: { name: string; slug?: string }) => createFlowApi(payload),
 
     onSuccess: (created: Flow) => {
       qc.invalidateQueries({queryKey: qk.flows.list()});

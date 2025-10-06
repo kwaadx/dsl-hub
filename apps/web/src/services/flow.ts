@@ -20,8 +20,8 @@ function slugify(input: string): string {
     .trim()
     .replace(/\s+/g, '-')
     .replace(/[^a-z0-9\-]/g, '')
-    .replace(/\-+/g, '-')
-    .replace(/^\-+|\-+$/g, '');
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
   return s || `flow-${Math.random().toString(36).slice(2, 8)}`;
 }
 
@@ -52,11 +52,8 @@ export async function updateFlowApi(_id: string, _patch: Partial<Flow>, _signal?
   throw err;
 }
 
-export async function deleteFlowApi(_id: string, _signal?: AbortSignal): Promise<void> {
-  const err = new Error('Deleting flows is not supported by the backend yet');
-  (err as any).code = 'NOT_IMPLEMENTED';
-  (err as any).status = 501;
-  throw err;
+export async function deleteFlowApi(id: string, signal?: AbortSignal): Promise<void> {
+  await http<void>({ method: 'DELETE', path: `/api/flows/${id}`, signal });
 }
 
 export async function fetchFlowsPagedApi(

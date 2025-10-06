@@ -2,6 +2,8 @@
 import {computed, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {useFlows} from '@/composables/data/flows/useFlows'
+import {useDeleteFlow} from '@/composables/data/flows/useDeleteFlow'
+import CreateFlow from "@/components/flow/CreateFlow.vue";
 
 const route = useRoute()
 const router = useRouter()
@@ -9,6 +11,23 @@ const props = defineProps<{ search?: string }>()
 
 const {data, isLoading, isError, error} = useFlows()
 const flows = computed(() => data?.value ?? [])
+
+const { mutateAsync: deleteFlowAsync } = useDeleteFlow()
+
+async function onDelete(flow: { id: string; name: string }) {
+  const ok = window.confirm(`Delete flow "${flow.name}"? This action cannot be undone.`)
+  if (!ok) return
+  try {
+    await deleteFlowAsync({ id: flow.id })
+    if (route.params.id === flow.id) {
+      await router.push({ name: 'Home' })
+    }
+  } catch (e: any) {
+    const msg = e?.message || 'Failed to delete the flow'
+    // Use a simple alert for minimal change; could be replaced with a Toast later
+    window.alert(msg)
+  }
+}
 
 function escapeHtml(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -52,7 +71,7 @@ function menuItems(flow: { id: string; name: string }) {
     },
     {
       label: 'Delete', icon: 'pi pi-trash',
-      command: () => console.log('Delete', flow)
+      command: () => onDelete(flow)
     },
   ]
 }
@@ -81,6 +100,9 @@ function setOpen(flowId: string, value: boolean) {
 
 <template>
   <nav class="p-3 space-y-1">
+    <div>
+      <CreateFlow/>
+    </div>
     <div v-if="isLoading" class="flex items-center mt-5">
       <ProgressSpinner aria-label="Loading" class="!h-15 !w-15"/>
     </div>
