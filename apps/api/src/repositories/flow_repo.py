@@ -7,18 +7,35 @@ class FlowRepo:
         self.db = db
 
     def list(self):
-        stmt = select(Flow)
-        flows = self.db.execute(stmt).scalars().all()
-        out = []
-        for f in flows:
-            has_pub = self.db.execute(
-                select(func.count()).select_from(Pipeline).where(Pipeline.flow_id==f.id, Pipeline.is_published==True)
-            ).scalar_one()
-            active_ver = self.db.execute(
-                select(Pipeline.version).where(Pipeline.flow_id==f.id, Pipeline.is_published==True).limit(1)
-            ).scalar_one_or_none()
-            out.append((f, bool(has_pub), active_ver))
-        return out
+        published_count = self._published_count_subquery().label("published_count")
+        active_version = self._active_version_subquery().label("active_version")
+        stmt = select(Flow, published_count, active_version)
+        return self.db.execute(stmt).all()
+
+    def get_with_stats(self, flow_id: str):
+        published_count = self._published_count_subquery().label("published_count")
+        active_version = self._active_version_subquery().label("active_version")
+        stmt = select(Flow, published_count, active_version).where(Flow.id == flow_id)
+        return self.db.execute(stmt).one_or_none()
+
+    @staticmethod
+    def _published_count_subquery():
+        return (
+            select(func.count())
+            .select_from(Pipeline)
+            .where(Pipeline.flow_id == Flow.id, Pipeline.is_published == True)
+            .scalar_subquery()
+        )
+
+    @staticmethod
+    def _active_version_subquery():
+        return (
+            select(Pipeline.version)
+            .where(Pipeline.flow_id == Flow.id, Pipeline.is_published == True)
+            .order_by(Pipeline.created_at.desc())
+            .limit(1)
+            .scalar_subquery()
+        )
 
     def create(self, flow_id, slug, name, meta=None):
         f = Flow(id=flow_id, slug=slug, name=name, meta=meta or {})
@@ -45,5 +62,6 @@ class FlowRepo:
         if f is None:
             return False
         self.db.delete(f)
+        self.db.flush()
         # commit is handled by request lifecycle in get_db
         return True

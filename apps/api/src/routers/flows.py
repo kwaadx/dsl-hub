@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
+from typing import Any, Dict, List
+
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
+
 from ..database import get_db
-from ..services.flow_service import FlowService
-from ..services.pipeline_service import PipelineService
 from ..dto import CreateFlow, FlowOut, ThreadOut, UpdateFlow
 from ..repositories.flow_summary_repo import get_active, active_payload
-from typing import Any, Dict, List
+from ..services.flow_service import FlowService
+from ..services.pipeline_service import PipelineService
 
 router = APIRouter(prefix="/flows", tags=["flows"])
 
@@ -24,10 +25,7 @@ def create_flow(payload: CreateFlow, db: Session = Depends(get_db)) -> FlowOut:
 @router.get("/{flow_id}", response_model=FlowOut)
 def get_flow(flow_id: str, db: Session = Depends(get_db)) -> FlowOut:
     svc = FlowService(db)
-    row = svc.get_one(flow_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="Flow not found")
-    return FlowOut(**row)
+    return FlowOut(**svc.get_one(flow_id))
 
 @router.post("/{flow_id}/threads", response_model=ThreadOut, status_code=201)
 def create_thread_for_flow(flow_id: str, db: Session = Depends(get_db)) -> ThreadOut:
@@ -46,21 +44,12 @@ def get_active_flow_summary(flow_id: str, db: Session = Depends(get_db)) -> Dict
 @router.delete("/{flow_id}", status_code=204)
 def delete_flow(flow_id: str, db: Session = Depends(get_db)) -> Response:
     svc = FlowService(db)
-    ok = svc.delete(flow_id)
-    if not ok:
-        raise HTTPException(status_code=404, detail="Flow not found")
+    svc.delete(flow_id)
     # 204 No Content
     return Response(status_code=204)
 
 @router.patch("/{flow_id}", response_model=FlowOut)
 def update_flow(flow_id: str, payload: UpdateFlow, db: Session = Depends(get_db)) -> FlowOut:
-    if payload.name is None and payload.slug is None:
-        raise HTTPException(status_code=400, detail="Nothing to update")
     svc = FlowService(db)
-    try:
-        row = svc.update(flow_id, name=payload.name, slug=payload.slug)
-    except IntegrityError:
-        raise HTTPException(status_code=409, detail="Slug already exists")
-    if row is None:
-        raise HTTPException(status_code=404, detail="Flow not found")
+    row = svc.update(flow_id, name=payload.name, slug=payload.slug)
     return FlowOut(**row)

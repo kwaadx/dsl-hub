@@ -1,11 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 from datetime import datetime
-from ..database import get_db
-from ..services.message_service import MessageService
-from ..dto import ThreadOut, MessageIn, MessageOut
-from ..models import Thread
 from typing import Any, Dict, List
+
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from ..database import get_db
+from ..dto import ThreadOut, MessageIn, MessageOut
+from ..middleware.error import AppError
+from ..models import Thread
+from ..services.message_service import MessageService
 
 router = APIRouter(prefix="/threads", tags=["threads"]) 
 
@@ -15,7 +18,7 @@ def get_thread(thread_id: str, db: Session = Depends(get_db)) -> ThreadOut:
     # Minimal metadata (extend as needed)
     t = db.get(Thread, thread_id)
     if not t:
-        raise HTTPException(404, "Thread not found")
+        raise AppError(status=404, code="THREAD_NOT_FOUND", message="Thread not found")
     payload = dict(
         id=thread_id,
         flow_id=str(t.flow_id),
@@ -48,9 +51,6 @@ def add_message(thread_id: str, payload: MessageIn, db: Session = Depends(get_db
 @router.post("/{thread_id}/close")
 async def close_thread(thread_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
     from ..services.summary_service import SummaryService
-    t = db.get(Thread, thread_id)
-    if not t:
-        raise HTTPException(404, "Thread not found")
     svc = SummaryService(db)
     # Delegate to service to ensure atomicity and single-source computations
     return await svc.close_thread(thread_id)
