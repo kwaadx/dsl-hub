@@ -1,8 +1,11 @@
 import sys
 from pathlib import Path
 
-# Ensure apps/api/src is on sys.path for imports
+# Ensure repository root and apps/api/src are on sys.path for imports
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 API_SRC = ROOT / "apps" / "api" / "src"
 if str(API_SRC) not in sys.path:
     sys.path.insert(0, str(API_SRC))

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import TypedDict, Optional, Dict, Any, cast
+from typing import TypedDict, Optional, Dict, Any, cast, Callable, Protocol
 
 from langgraph.graph import START, END, StateGraph
 from sqlalchemy.exc import SQLAlchemyError
@@ -13,6 +13,46 @@ from ..services.validation_service import ValidationService
 from ..services.pipeline_service import PipelineService
 from ..services.similarity_service import SimilarityService
 from ..services.llm import LLMClient
+
+
+class SimilarityServiceProtocol(Protocol):
+    def find_candidate(self, flow_id: str, user_message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Return a matching pipeline candidate for the given flow and message."""
+
+
+class LLMClientProtocol(Protocol):
+    async def generate_pipeline(self, context: Dict[str, Any], user_message: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate a pipeline payload for the provided context and user message."""
+
+    async def self_check(self, draft: Dict[str, Any]) -> Dict[str, Any]:
+        """Return review notes for a generated pipeline."""
+
+
+class RunsRepoProtocol(Protocol):
+    def start(self, run_id: str, flow_id: str, thread_id: str, *, stage: str, source: Dict[str, Any]) -> None:
+        ...
+
+    def tick(self, run_id: str, *, stage: str, status: str, result: Dict[str, Any] | None = None) -> None:
+        ...
+
+    def add_issues(self, run_id: str, issues: list[Any]) -> None:
+        ...
+
+    def finish(self, run_id: str, status: str) -> None:
+        ...
+
+
+class ValidationServiceProtocol(Protocol):
+    def validate_pipeline(self, pipeline: Dict[str, Any]) -> list[Dict[str, Any]]:
+        ...
+
+
+class PipelineServiceProtocol(Protocol):
+    def create_version(self, flow_id: str, content: Dict[str, Any]) -> Any:
+        ...
+
+    def publish(self, pipeline_id: str) -> Any:
+        ...
 
 
 class AgentState(TypedDict, total=False):
@@ -35,10 +75,23 @@ class AgentRunner:
     Each node pushes SSE events and updates generation_run via RunsRepo.
     """
 
-    def __init__(self, session_factory=SessionLocal):
+    def __init__(
+        self,
+        session_factory: Callable[[], Any] = SessionLocal,
+        similarity_service: SimilarityServiceProtocol | None = None,
+        llm_client: LLMClientProtocol | None = None,
+        runs_repo_factory: Callable[[Any], RunsRepoProtocol] | None = None,
+        validation_service_factory: Callable[[Any], ValidationServiceProtocol] | None = None,
+        pipeline_service_factory: Callable[[Any], PipelineServiceProtocol] | None = None,
+    ):
         self.session_factory = session_factory
-        self.similarity = SimilarityService()
-        self.llm = LLMClient()
+        self.similarity: SimilarityServiceProtocol = similarity_service or SimilarityService()
+        self.llm: LLMClientProtocol = llm_client or LLMClient()
+        self.runs_repo_factory = runs_repo_factory or (lambda session: RunsRepo(session))
+        self.validation_service_factory = (
+            validation_service_factory or (lambda session: ValidationService(session))
+        )
+        self.pipeline_service_factory = pipeline_service_factory or (lambda session: PipelineService(session))
 
     def _gather_context(self, flow_id: str) -> Dict[str, Any]:
         from sqlalchemy import select
@@ -81,7 +134,7 @@ class AgentRunner:
         def _with_repo(op):
             session = self.session_factory()
             try:
-                repo = RunsRepo(session)
+                repo = self.runs_repo_factory(session)
                 op(repo)
                 session.commit()
             except Exception:
@@ -91,7 +144,7 @@ class AgentRunner:
                 session.close()
 
         def _tick(stage: str, status: str, result: Dict[str, Any] | None = None) -> None:
-            def apply(repo: RunsRepo) -> None:
+            def apply(repo: RunsRepoProtocol) -> None:
                 repo.tick(run_id_str, stage=stage, status=status, result=result)
 
             _with_repo(apply)
@@ -99,17 +152,11 @@ class AgentRunner:
         # --- nodes ---
         async def init_node(s: AgentState) -> AgentState:
             await bus.publish(s["thread_id"], "run.started", {"run_id": s["run_id"], "stage": "discovery"})
-            session = self.session_factory()
-            try:
-                runs_repo = RunsRepo(session)
-                runs_repo.start(s["run_id"], s["flow_id"], s["thread_id"], stage="discovery", source=s["user_message"])
-                runs_repo.tick(s["run_id"], stage="discovery", status="succeeded")
-                session.commit()
-            except Exception:
-                session.rollback()
-                raise
-            finally:
-                session.close()
+            def apply(repo: RunsRepoProtocol) -> None:
+                repo.start(s["run_id"], s["flow_id"], s["thread_id"], stage="discovery", source=s["user_message"])
+                repo.tick(s["run_id"], stage="discovery", status="succeeded")
+
+            _with_repo(apply)
             return s
 
         async def search_existing(s: AgentState) -> AgentState:
@@ -161,18 +208,23 @@ class AgentRunner:
         async def hard_validate_node(s: AgentState) -> AgentState:
             await bus.publish(s["thread_id"], "run.stage",
                               {"run_id": s["run_id"], "stage": "hard_validate", "status": "running"})
-            session_factory = self.session_factory()
-            validator = ValidationService(session_factory)
-            draft_in = cast(Dict[str, Any], s.get("draft") or {})
-            issues = validator.validate_pipeline(draft_in)
-            s["issues"] = issues
-            runs_repo = RunsRepo(session_factory)
-            status = "failed" if issues else "succeeded"
-            runs_repo.tick(s["run_id"], stage="hard_validate", status=status, result={"issues": issues})
-            if issues:
-                runs_repo.add_issues(s["run_id"], issues)
-            session_factory.commit()
-            session_factory.close()
+            session = self.session_factory()
+            try:
+                validator = self.validation_service_factory(session)
+                draft_in = cast(Dict[str, Any], s.get("draft") or {})
+                issues = validator.validate_pipeline(draft_in)
+                s["issues"] = issues
+                runs_repo = self.runs_repo_factory(session)
+                status = "failed" if issues else "succeeded"
+                runs_repo.tick(s["run_id"], stage="hard_validate", status=status, result={"issues": issues})
+                if issues:
+                    runs_repo.add_issues(s["run_id"], issues)
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
+            finally:
+                session.close()
             if issues:
                 await bus.publish(s["thread_id"], "issues", {"items": issues})
             await bus.publish(s["thread_id"], "run.stage",
@@ -185,10 +237,10 @@ class AgentRunner:
         async def persist_node(s: AgentState) -> AgentState:
             await bus.publish(s["thread_id"], "run.stage",
                               {"run_id": s["run_id"], "stage": "persist", "status": "running"})
-            session_factory = self.session_factory()
+            session = self.session_factory()
             persisted_payload: Dict[str, Any] | None = None
             try:
-                pipelines = PipelineService(session_factory)
+                pipelines = self.pipeline_service_factory(session)
                 content = cast(Dict[str, Any], s.get("draft") or {})
                 p = pipelines.create_version(s["flow_id"], content)
                 version_str = str(p.version) if getattr(p, "version", None) is not None else ""
@@ -197,16 +249,16 @@ class AgentRunner:
                     "version": version_str,
                     "status": p.status,
                 }
-                session_factory.commit()
+                session.commit()
             except Exception as exc:
-                session_factory.rollback()
+                session.rollback()
                 error_message = getattr(exc, "message", str(exc))
                 _tick("persist", "failed", result={"error": error_message})
                 await bus.publish(s["thread_id"], "run.stage",
                                   {"run_id": s["run_id"], "stage": "persist", "status": "failed", "error": error_message})
                 raise
             finally:
-                session_factory.close()
+                session.close()
 
             assert persisted_payload is not None
             s["persisted"] = {
@@ -226,28 +278,28 @@ class AgentRunner:
         async def publish_node(s: AgentState) -> AgentState:
             await bus.publish(s["thread_id"], "run.stage",
                               {"run_id": s["run_id"], "stage": "publish", "status": "running"})
-            session_factory = self.session_factory()
+            session = self.session_factory()
             published_payload: Dict[str, str] | None = None
             try:
-                pipelines = PipelineService(session_factory)
+                pipelines = self.pipeline_service_factory(session)
                 if s.get("persisted"):
                     pipelines.publish(s["persisted"]["pipeline_id"])
                     published_payload = {
                         "pipeline_id": s["persisted"]["pipeline_id"],
                         "version": s["persisted"]["version"],
                     }
-                    session_factory.commit()
+                    session.commit()
                 else:
-                    session_factory.commit()
+                    session.commit()
             except Exception as exc:
-                session_factory.rollback()
+                session.rollback()
                 error_message = getattr(exc, "message", str(exc))
                 _tick("publish", "failed", result={"error": error_message})
                 await bus.publish(s["thread_id"], "run.stage",
                                   {"run_id": s["run_id"], "stage": "publish", "status": "failed", "error": error_message})
                 raise
             finally:
-                session_factory.close()
+                session.close()
 
             if published_payload:
                 await bus.publish(s["thread_id"], "pipeline.published", published_payload)
@@ -258,11 +310,16 @@ class AgentRunner:
 
         async def finish_node(s: AgentState) -> AgentState:
             status = "failed" if s.get("issues") else "succeeded"
-            session_factory = self.session_factory()
-            runs_repo = RunsRepo(session_factory)
-            runs_repo.finish(s["run_id"], status=status)
-            session_factory.commit()
-            session_factory.close()
+            session = self.session_factory()
+            try:
+                runs_repo = self.runs_repo_factory(session)
+                runs_repo.finish(s["run_id"], status=status)
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
+            finally:
+                session.close()
             await bus.publish(s["thread_id"], "run.finished", {"run_id": s["run_id"], "status": status})
             return s
 
@@ -297,7 +354,7 @@ class AgentRunner:
             # Ensure we mark the run as failed and emit a terminal event
             db_session = self.session_factory()
             try:
-                runs = RunsRepo(db_session)
+                runs = self.runs_repo_factory(db_session)
                 try:
                     runs.finish(run_id_str, status="failed")
                     db_session.commit()
