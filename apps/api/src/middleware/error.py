@@ -18,9 +18,14 @@ class AppError(Exception):
 
 
 def _error_response(status_code: int, code: str, message: str, details: Optional[List[Any]] = None) -> JSONResponse:
-    return JSONResponse(status_code=status_code, content={
-        "error": {"code": code, "message": message, "details": details or []}
-    })
+    detail_list = list(details) if isinstance(details, list) else []
+    content = {
+        "code": code,
+        "message": message,
+        "details": detail_list,
+        "error": {"code": code, "message": message, "details": detail_list},
+    }
+    return JSONResponse(status_code=status_code, content=content)
 
 
 def _with_request(details: Optional[List[Any]], request: Request) -> List[Any]:

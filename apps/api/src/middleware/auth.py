@@ -5,7 +5,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from typing import Callable, Awaitable
 
-from .error import AppError
+from .error import AppError, handle_app_error
 from ..config import settings
 
 
@@ -23,5 +23,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
             auth = request.headers.get("Authorization")
             expected = f"Bearer {token}"
             if auth != expected:
-                raise AppError(status=401, code="UNAUTHORIZED", message="Missing or invalid Authorization token")
+                error = AppError(status=401, code="UNAUTHORIZED", message="Missing or invalid Authorization token")
+                return await handle_app_error(request, error)
         return await call_next(request)

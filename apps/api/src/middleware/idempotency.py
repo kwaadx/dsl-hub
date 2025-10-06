@@ -1,17 +1,32 @@
 from __future__ import annotations
 
 from starlette.middleware.base import BaseHTTPMiddleware
+from dataclasses import dataclass
+from typing import Dict, Tuple, List
+import time
+import hashlib
+
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import Message
-import time, hashlib
-from typing import Dict, Tuple, List
 
-from .error import AppError
+from .error import AppError, handle_app_error
 from ..config import settings
 
-# Cache structure: (method, path, idempotency_key) -> (ts, body_hash_hex, status_code, headers, content_bytes, media_type)
-_CACHE: Dict[Tuple[str, str, str], Tuple[float, str, int, Dict[str, str], bytes, str]] = {}
+CacheKey = Tuple[str, str, str]
+
+
+@dataclass
+class CachedResponse:
+    timestamp: float
+    body_hash: str
+    status_code: int
+    headers: Dict[str, str]
+    content: bytes
+    media_type: str
+
+
+_CACHE: Dict[CacheKey, CachedResponse] = {}
 
 try:
     # Optional metric; if Prometheus not configured, ignore
@@ -29,17 +44,16 @@ def _sha256_hex(data: bytes) -> str:
 def _sweep_cache(ttl: float, max_entries: int) -> None:
     now = time.time()
     # remove expired
-    expired: List[Tuple[str, str, str]] = []
+    expired: List[CacheKey] = []
     for k, v in list(_CACHE.items()):
-        ts = v[0]
-        if now - ts >= ttl:
+        if now - v.timestamp >= ttl:
             expired.append(k)
     for k in expired:
         _CACHE.pop(k, None)
     # enforce size cap
     if 0 < max_entries < len(_CACHE):
         # sort by ts ascending (oldest first)
-        items = sorted(_CACHE.items(), key=lambda it: it[1][0])
+        items = sorted(_CACHE.items(), key=lambda it: it[1].timestamp)
         to_remove = len(_CACHE) - max_entries
         for k, _ in items[:to_remove]:
             _CACHE.pop(k, None)
@@ -49,6 +63,22 @@ def _sweep_cache(ttl: float, max_entries: int) -> None:
             IDEMPOTENCY_CACHE_ENTRIES.set(len(_CACHE))
     except (ValueError, TypeError, RuntimeError):
         pass
+
+
+def _serialize_headers(headers: Dict[str, str]) -> Dict[str, str]:
+    serialized: Dict[str, str] = {}
+    for key, value in headers.items():
+        if not isinstance(key, str):
+            key = key.decode()
+        if not isinstance(value, str):
+            value = value.decode()
+        serialized[key] = value
+    return serialized
+
+
+def _build_response(entry: CachedResponse) -> Response:
+    headers = {k: v for k, v in entry.headers.items() if k.lower() != "content-length"}
+    return Response(content=entry.content, media_type=entry.media_type, status_code=entry.status_code, headers=headers)
 
 
 class IdempotencyMiddleware(BaseHTTPMiddleware):
@@ -67,33 +97,44 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                 # Rebuild request with restored body
                 request = Request(request.scope, receive)
 
-                ck = (method, str(request.url.path), key)
+                ck: CacheKey = (method, str(request.url.path), key)
                 now = time.time()
                 ttl = float(getattr(settings, "IDEMPOTENCY_TTL_SEC", 300))
                 max_entries = int(getattr(settings, "IDEMPOTENCY_CACHE_MAX", 1000))
                 _sweep_cache(ttl, max_entries)
                 cached = _CACHE.get(ck)
                 if cached:
-                    ts, cached_hash, status_code, headers, content, media_type = cached
-                    if now - ts < ttl:
-                        if cached_hash != body_hash:
-                            # Same key reused for different payload within TTL → conflict
-                            raise AppError(status=409, code="IDEMPOTENCY_KEY_REUSED",
-                                           message="Idempotency-Key has already been used with a different request body",
-                                           details=[{"path": request.url.path}])
-                        return Response(content=content, media_type=media_type, status_code=status_code, headers=headers)
+                    if now - cached.timestamp < ttl:
+                        if cached.body_hash != body_hash:
+                            error = AppError(
+                                status=409,
+                                code="IDEMPOTENCY_KEY_REUSED",
+                                message="Idempotency-Key has already been used with a different request body",
+                                details=[{"path": request.url.path}],
+                            )
+                            return await handle_app_error(request, error)
+                        return _build_response(cached)
                 # Not cached or expired → process and cache
                 resp = await call_next(request)
-                # Attempt to read response body bytes (works for standard JSONResponse)
                 try:
-                    content_bytes: bytes = resp.body if isinstance(resp.body, (bytes, bytearray)) else bytes(resp.body or b"")
-                except (AttributeError, TypeError, ValueError):
-                    # Fall back: do not cache if body can't be read
+                    content_chunks = [chunk async for chunk in resp.body_iterator]
+                except Exception:
                     return resp
-                headers = {k.decode() if isinstance(k, bytes) else k: (v.decode() if isinstance(v, bytes) else v)
-                           for k, v in resp.headers.items()}
-                media_type = resp.media_type or "application/json"
-                _CACHE[ck] = (now, body_hash, resp.status_code, headers, content_bytes, media_type)
+                content_bytes = b"".join(content_chunks)
+                media_type = resp.media_type or resp.headers.get("content-type", "application/json")
+                headers = _serialize_headers(dict(resp.headers.items()))
+                entry = CachedResponse(
+                    timestamp=now,
+                    body_hash=body_hash,
+                    status_code=resp.status_code,
+                    headers=headers,
+                    content=content_bytes,
+                    media_type=media_type,
+                )
+                _CACHE[ck] = entry
                 _sweep_cache(ttl, max_entries)
-                return resp
+                response = _build_response(entry)
+                if resp.background:
+                    response.background = resp.background
+                return response
         return await call_next(request)
