@@ -1,6 +1,6 @@
-import {useMutation, useQueryClient} from '@tanstack/vue-query';
-import {createFlowApi, type Flow} from '@/services/flow';
-import {qk} from '../queryKeys';
+import { useMutation, useQueryClient } from '@tanstack/vue-query';
+import { createFlowApi, type Flow } from '@/services/flow';
+import { qk } from '../queryKeys';
 
 export function useCreateFlow() {
   const qc = useQueryClient();
@@ -8,9 +8,11 @@ export function useCreateFlow() {
   return useMutation({
     mutationFn: (payload: { name: string; slug?: string }) => createFlowApi(payload),
 
-    onSuccess: (created: Flow) => {
-      qc.invalidateQueries({queryKey: qk.flows.list()});
+    onSuccess: async (created: Flow) => {
       qc.setQueryData(qk.flows.detail(created.id), created);
+
+      await qc.invalidateQueries({ queryKey: qk.flows.base() });
+      await qc.refetchQueries({ queryKey: qk.flows.base(), type: 'active' });
     },
   });
 }

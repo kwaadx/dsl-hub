@@ -45,13 +45,19 @@ export async function createFlowApi(
   });
 }
 
-export async function updateFlowApi(id: string, patch: Partial<Flow>, signal?: AbortSignal): Promise<Flow> {
-  const body: any = {};
+export async function updateFlowApi(
+  id: string,
+  patch: Partial<Flow>,
+  signal?: AbortSignal
+): Promise<Flow> {
+  const body: Record<string, unknown> = {};
   if (typeof patch.name === 'string') body.name = patch.name;
   if (typeof patch.slug === 'string') body.slug = patch.slug;
+
   if (!('name' in body) && !('slug' in body)) {
     throw Object.assign(new Error('Nothing to update'), { status: 400, code: 'BAD_REQUEST' });
   }
+
   return http<Flow, { name?: string; slug?: string }>({
     method: 'PATCH',
     path: `/api/flows/${id}`,
@@ -68,13 +74,22 @@ export async function fetchFlowsPagedApi(
   params: { page: number; pageSize?: number; q?: string },
   signal?: AbortSignal
 ): Promise<Paged<Flow>> {
-  const { page, pageSize = 5, q = '' } = params;
+  const { page: rawPage, pageSize = 20, q = '' } = params;
   const all = await http<Flow[]>({ method: 'GET', path: '/api/flows', signal });
+  const sorted = [...all].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+  );
   const needle = q.trim().toLowerCase();
-  const filtered = needle ? all.filter((f) => f.name.toLowerCase().includes(needle)) : all;
-  const start = Math.max(0, (page - 1) * pageSize);
-  const items = filtered.slice(start, start + pageSize);
+  const filtered = needle
+    ? sorted.filter((f) =>
+      f.name.toLowerCase().includes(needle) ||
+      (f.slug ? f.slug.toLowerCase().includes(needle) : false)
+    )
+    : sorted;
   const totalItems = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const page = Math.min(Math.max(1, rawPage), totalPages);
+  const start = (page - 1) * pageSize;
+  const items = filtered.slice(start, start + pageSize);
   return { items, page, pageSize, totalItems, totalPages };
 }
