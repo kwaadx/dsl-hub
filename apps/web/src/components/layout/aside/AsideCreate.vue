@@ -1,17 +1,15 @@
 <script setup lang="ts">
-import {ref, computed, watch} from 'vue'
+import {ref, computed} from 'vue'
 import {useRouter} from 'vue-router'
 import {useCreateFlow} from '@/composables/data/flows/useCreateFlow'
+import {useNameSlugSync} from '@/composables/forms/useNameSlugSync'
 
 const visible = ref(false)
 const name = ref('')
-const slug = ref('')
+const {slug, slugEdited, slugValid, slugify, onSlugInput} = useNameSlugSync(name)
 const isSubmitting = ref(false)
 const errorMsg = ref('')
-const slugEdited = ref(false)
 
-const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/ // kebab-case
-const slugValid = computed(() => !slug.value || slugPattern.test(slug.value))
 const canSubmit = computed(() => !!name.value.trim() && !isSubmitting.value && slugValid.value)
 
 const router = useRouter()
@@ -30,23 +28,6 @@ function onOpen() {
 
 function onHide() {
   resetForm()
-}
-
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/['"]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
-watch(name, (v) => {
-  if (!slugEdited.value) slug.value = slugify(v || '')
-})
-
-function onSlugInput() {
-  slugEdited.value = true
 }
 
 async function onSave() {

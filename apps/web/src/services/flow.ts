@@ -69,27 +69,3 @@ export async function updateFlowApi(
 export async function deleteFlowApi(id: string, signal?: AbortSignal): Promise<void> {
   await http<void>({ method: 'DELETE', path: `/api/flows/${id}`, signal });
 }
-
-export async function fetchFlowsPagedApi(
-  params: { page: number; pageSize?: number; q?: string },
-  signal?: AbortSignal
-): Promise<Paged<Flow>> {
-  const { page: rawPage, pageSize = 20, q = '' } = params;
-  const all = await http<Flow[]>({ method: 'GET', path: '/api/flows', signal });
-  const sorted = [...all].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-  );
-  const needle = q.trim().toLowerCase();
-  const filtered = needle
-    ? sorted.filter((f) =>
-      f.name.toLowerCase().includes(needle) ||
-      (f.slug ? f.slug.toLowerCase().includes(needle) : false)
-    )
-    : sorted;
-  const totalItems = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const page = Math.min(Math.max(1, rawPage), totalPages);
-  const start = (page - 1) * pageSize;
-  const items = filtered.slice(start, start + pageSize);
-  return { items, page, pageSize, totalItems, totalPages };
-}

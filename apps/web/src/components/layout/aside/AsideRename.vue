@@ -1,7 +1,8 @@
 <script lang="ts" setup>
-import {ref, computed, watch} from 'vue'
+import {ref, computed} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {useUpdateFlow} from '@/composables/data/flows/useUpdateFlow'
+import {useNameSlugSync} from '@/composables/forms/useNameSlugSync'
 
 const route = useRoute()
 const router = useRouter()
@@ -10,31 +11,22 @@ const {mutateAsync: updateFlowAsync} = useUpdateFlow()
 const visible = ref(false)
 const current = ref<{ id: string; name: string; slug?: string } | null>(null)
 const nameInput = ref('')
-const slugInput = ref('')
-const slugEdited = ref(false)
+const {
+  slug: slugInput,
+  slugEdited,
+  slugPattern,
+  slugValid,
+  slugify,
+  onSlugInput
+} = useNameSlugSync(nameInput)
 const isSubmitting = ref(false)
 const errorMsg = ref('')
 
-const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-const slugValid = computed(() => !slugInput.value || slugPattern.test(slugInput.value))
 const canSubmit = computed(() => {
   const trimmed = nameInput.value.trim()
   const changedName = current.value && trimmed && trimmed !== current.value.name
   const changedSlug = current.value && slugInput.value && slugInput.value !== (current.value.slug || '') && slugValid.value
   return !!(changedName || changedSlug) && !isSubmitting.value
-})
-
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/['"]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
-watch(nameInput, (v) => {
-  if (!slugEdited.value) slugInput.value = slugify(v || '')
 })
 
 function open(flow: { id: string; name: string; slug?: string }) {
@@ -78,10 +70,6 @@ async function onSave() {
   } finally {
     isSubmitting.value = false
   }
-}
-
-function onSlugInput() {
-  slugEdited.value = true
 }
 
 defineExpose({open})

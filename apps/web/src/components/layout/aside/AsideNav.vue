@@ -24,14 +24,12 @@ async function onDelete(flow: { id: string; name: string; slug?: string }) {
   const isCurrent = route.params.slug === flow.slug
   try {
     if (isCurrent) {
-      // cancel any in-flight detail query to avoid 404 toast, then navigate home immediately
       await qc.cancelQueries({queryKey: qk.flows.detail(flow.id)})
       await router.replace({name: 'Home'})
     }
     await deleteFlowAsync({id: flow.id})
   } catch (e: any) {
     const msg = e?.message || 'Failed to delete the flow'
-    // Use a simple alert for minimal change; could be replaced with a Toast later
     window.alert(msg)
   }
 }
