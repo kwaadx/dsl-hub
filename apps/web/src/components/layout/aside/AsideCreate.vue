@@ -8,6 +8,7 @@ const name = ref('')
 const slug = ref('')
 const isSubmitting = ref(false)
 const errorMsg = ref('')
+const slugEdited = ref(false)
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/ // kebab-case
 const slugValid = computed(() => !slug.value || slugPattern.test(slug.value))
@@ -20,6 +21,7 @@ function resetForm() {
   name.value = ''
   slug.value = ''
   errorMsg.value = ''
+  slugEdited.value = false
 }
 
 function onOpen() {
@@ -40,8 +42,12 @@ function slugify(input: string) {
 }
 
 watch(name, (v) => {
-  if (!slug.value) slug.value = slugify(v || '')
+  if (!slugEdited.value) slug.value = slugify(v || '')
 })
+
+function onSlugInput() {
+  slugEdited.value = true
+}
 
 async function onSave() {
   if (!canSubmit.value) return
@@ -52,7 +58,7 @@ async function onSave() {
     const finalSlug = slug.value ? slugify(slug.value) : undefined
     const flow = await create.mutateAsync({ name: trimmedName, slug: finalSlug })
     visible.value = false
-    await router.push({ name: 'FlowRoot', params: { id: flow.id } })
+    await router.push({ name: 'FlowRoot', params: { slug: flow.slug } })
   } catch (e: any) {
     // опціонально: красивіше повідомлення для 409/validation
     const msg = e?.message || 'Failed to create flow'
@@ -93,6 +99,7 @@ async function onSave() {
           <InputText
             id="slug"
             v-model="slug"
+            @input="onSlugInput"
             class="w-full"
             autocomplete="off"
             placeholder="(optional)"

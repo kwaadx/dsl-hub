@@ -45,11 +45,19 @@ export async function createFlowApi(
   });
 }
 
-export async function updateFlowApi(_id: string, _patch: Partial<Flow>, _signal?: AbortSignal): Promise<Flow> {
-  const err = new Error('Updating flows is not supported by the backend yet');
-  (err as any).code = 'NOT_IMPLEMENTED';
-  (err as any).status = 501;
-  throw err;
+export async function updateFlowApi(id: string, patch: Partial<Flow>, signal?: AbortSignal): Promise<Flow> {
+  const body: any = {};
+  if (typeof patch.name === 'string') body.name = patch.name;
+  if (typeof patch.slug === 'string') body.slug = patch.slug;
+  if (!('name' in body) && !('slug' in body)) {
+    throw Object.assign(new Error('Nothing to update'), { status: 400, code: 'BAD_REQUEST' });
+  }
+  return http<Flow, { name?: string; slug?: string }>({
+    method: 'PATCH',
+    path: `/api/flows/${id}`,
+    body,
+    signal,
+  });
 }
 
 export async function deleteFlowApi(id: string, signal?: AbortSignal): Promise<void> {

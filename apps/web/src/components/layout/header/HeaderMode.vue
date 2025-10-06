@@ -28,9 +28,9 @@ const layoutStore = useLayoutStore();
 const model = ref<ModeKey | null>(null)
 
 const hasValidContext = computed(() => {
-  const id = route.params.id as string | undefined
+  const slug = route.params.slug as string | undefined
   const m = route.params.mode as string | undefined
-  return !!id && !!m && ALLOWED.includes(m as ModeKey)
+  return !!slug && !!m && ALLOWED.includes(m as ModeKey)
 })
 
 function syncFromRoute() {
@@ -47,10 +47,10 @@ watch(() => route.params.mode, syncFromRoute)
 
 watch(model, (val) => {
   if (!val || !hasValidContext.value) return
-  const id = route.params.id as string
+  const slug = route.params.slug as string
   if (route.params.mode === val) return
   const name = (route.name as string) || 'Flow'
-  router.replace({name, params: {...route.params, id, mode: val}})
+  router.replace({name, params: {...route.params, slug, mode: val}})
 })
 
 const options = computed(() => props.items ?? modes)

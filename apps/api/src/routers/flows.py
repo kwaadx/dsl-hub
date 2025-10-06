@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from ..database import get_db
 from ..services.flow_service import FlowService
 from ..services.pipeline_service import PipelineService
-from ..dto import CreateFlow, FlowOut, ThreadOut
+from ..dto import CreateFlow, FlowOut, ThreadOut, UpdateFlow
 from ..repositories.flow_summary_repo import get_active, active_payload
 from typing import Any, Dict, List
 
@@ -50,3 +51,16 @@ def delete_flow(flow_id: str, db: Session = Depends(get_db)) -> Response:
         raise HTTPException(status_code=404, detail="Flow not found")
     # 204 No Content
     return Response(status_code=204)
+
+@router.patch("/{flow_id}", response_model=FlowOut)
+def update_flow(flow_id: str, payload: UpdateFlow, db: Session = Depends(get_db)) -> FlowOut:
+    if payload.name is None and payload.slug is None:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    svc = FlowService(db)
+    try:
+        row = svc.update(flow_id, name=payload.name, slug=payload.slug)
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="Slug already exists")
+    if row is None:
+        raise HTTPException(status_code=404, detail="Flow not found")
+    return FlowOut(**row)

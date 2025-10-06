@@ -28,5 +28,11 @@ class FlowService:
         f = self.repo.create(fid, slug, name, meta={})
         return dict(id=str(f.id), slug=f.slug, name=f.name)
 
+    def update(self, flow_id: str, *, name: str | None = None, slug: str | None = None) -> Dict[str, Any] | None:
+        f = self.repo.update(flow_id, name=name, slug=slug)
+        if f is None:
+            return None
+        return dict(id=str(f.id), slug=f.slug, name=f.name)
+
     def delete(self, flow_id: str) -> bool:
         return self.repo.delete(flow_id)

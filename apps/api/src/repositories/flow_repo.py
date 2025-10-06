@@ -29,6 +29,17 @@ class FlowRepo:
     def get(self, flow_id):
         return self.db.get(Flow, flow_id)
 
+    def update(self, flow_id: str, *, name: str | None = None, slug: str | None = None):
+        f = self.get(flow_id)
+        if f is None:
+            return None
+        if name is not None:
+            f.name = name
+        if slug is not None:
+            f.slug = slug
+        self.db.flush()
+        return f
+
     def delete(self, flow_id: str) -> bool:
         f = self.get(flow_id)
         if f is None:

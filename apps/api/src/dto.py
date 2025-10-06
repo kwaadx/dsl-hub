@@ -12,6 +12,10 @@ class FlowOut(BaseModel):
     has_published: bool = False
     active_version: Optional[str] = None
 
+class UpdateFlow(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    slug: Optional[str] = Field(default=None, min_length=1, max_length=100, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
 class CreateThread(BaseModel):
     pass
 

@@ -6,6 +6,7 @@ export const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error, query) => {
       if (query.meta?.silent) return;
+      if ((error as any)?.name === 'AbortError') return;
       const e = normalizeError(error);
       toastError(e.status ? `${e.status}: ${e.message}` : e.message);
       // if (e.status === 401) { /* redirect / logout */ }
@@ -14,6 +15,7 @@ export const queryClient = new QueryClient({
   mutationCache: new MutationCache({
     onError: (error, _vars, _ctx, mutation) => {
       if (mutation.meta?.silent) return;
+      if ((error as any)?.name === 'AbortError') return;
       const e = normalizeError(error);
       toastError(e.status ? `${e.status}: ${e.message}` : e.message);
     },

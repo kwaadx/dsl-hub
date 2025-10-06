@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useFlows } from '@/composables/data/flows/useFlows'
 import { useFlowById } from '@/composables/data/flows/useFlowById'
 import AgentFlow from '@/components/flow/AgentFlow.vue'
 
-const props = defineProps<{ id: string; mode?: string }>()
-const id = computed(() => String(props.id ?? ''))
+const props = defineProps<{ slug: string; mode?: string }>()
+const slug = computed(() => String(props.slug ?? ''))
 const mode = computed(() => props.mode ?? 'agent')
+
+const { data: flows } = useFlows()
+const id = computed(() => {
+  const list = flows?.value ?? []
+  const found = list.find(f => f.slug === slug.value)
+  return found?.id ?? ''
+})
 
 const { data: flow, isLoading, isError, error } = useFlowById(id)
 </script>
