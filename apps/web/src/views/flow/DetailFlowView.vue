@@ -1,21 +1,28 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useFlows } from '@/composables/data/flows/useFlows'
-import { useFlowById } from '@/composables/data/flows/useFlowById'
-import AgentFlow from '@/components/flow/AgentFlow.vue'
+import {computed, watchEffect} from 'vue'
+import {useRouter} from 'vue-router'
+import {useFlows} from '@/composables/data/flows/useFlows'
+import {useFlowById} from '@/composables/data/flows/useFlowById'
 
-const props = defineProps<{ slug: string; mode?: string }>()
+const props = defineProps<{ slug: string }>()
 const slug = computed(() => String(props.slug ?? ''))
-const mode = computed(() => props.mode ?? 'agent')
 
-const { data: flows } = useFlows()
+const {data: flows, isLoading: isFlowsLoading} = useFlows()
 const id = computed(() => {
   const list = flows?.value ?? []
   const found = list.find(f => f.slug === slug.value)
   return found?.id ?? ''
 })
 
-const { data: flow, isLoading, isError, error } = useFlowById(id)
+const {data: flow, isLoading, isError, error} = useFlowById(id)
+
+const router = useRouter()
+watchEffect(() => {
+  if (!isFlowsLoading?.value && id.value.length === 0) {
+    router.replace({name: 'NotFound'})
+    return
+  }
+})
 </script>
 
 <template>
@@ -32,17 +39,13 @@ const { data: flow, isLoading, isError, error } = useFlowById(id)
     <div
       v-else
       class="flex flex-1 min-h-0 flex-col gap-3 items-stretch"
-      :key="`flow-shell:${id}:${mode}`"
+      :key="`detail-flow-shell:${id}`"
     >
       <header class="shrink-0 flex items-center justify-between gap-2">
         <h1 class="text-xl font-semibold truncate">
           {{ flow?.name }}
         </h1>
       </header>
-
-      <div v-if="mode === 'agent'" class="flex-1 min-h-0 overflow-hidden">
-        <AgentFlow :key="`agent:${id}`" :flowId="id" />
-      </div>
     </div>
   </section>
 </template>

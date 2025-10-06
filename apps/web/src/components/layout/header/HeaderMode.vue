@@ -3,14 +3,12 @@ import {computed, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {useLayoutStore} from "@/store/layout";
 
-type ModeKey = 'agent' | 'visual' | 'logs' | 'settings'
-const ALLOWED: ModeKey[] = ['agent', 'visual', 'logs', 'settings']
+type ModeKey = 'agent' | 'dashboard'
+const ALLOWED: ModeKey[] = ['agent', 'dashboard']
 
 const modes = [
+  {name: 'Dashboard', code: 'dashboard' as ModeKey},
   {name: 'Agent', code: 'agent' as ModeKey},
-  {name: 'Visual', code: 'visual' as ModeKey},
-  {name: 'Logs', code: 'logs' as ModeKey},
-  {name: 'Settings', code: 'settings' as ModeKey},
 ]
 
 const props = withDefaults(defineProps<{

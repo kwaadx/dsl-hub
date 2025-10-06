@@ -60,7 +60,7 @@ async function onSave() {
   try {
     const updated = await updateFlowAsync({id, patch})
     if (updated?.slug && updated.slug !== oldSlug && route.params.slug === oldSlug) {
-      const name = (route.name as string) || 'Flow'
+      const name = (route.name as string) || 'DetailFlow'
       await router.replace({name, params: {...route.params, slug: updated.slug}})
     }
     visible.value = false
