@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import {computed, watchEffect} from 'vue'
-import {useRouter} from 'vue-router'
+import {computed} from 'vue'
 import {useFlows} from '@/composables/data/flows/useFlows'
 import {useFlowById} from '@/composables/data/flows/useFlowById'
 
 const props = defineProps<{ slug: string }>()
 const slug = computed(() => String(props.slug ?? ''))
 
-const {data: flows, isLoading: isFlowsLoading} = useFlows()
+const {data: flows} = useFlows()
 const id = computed(() => {
   const list = flows?.value ?? []
   const found = list.find(f => f.slug === slug.value)
@@ -15,14 +14,6 @@ const id = computed(() => {
 })
 
 const {data: flow, isLoading, isError, error} = useFlowById(id)
-
-const router = useRouter()
-watchEffect(() => {
-  if (!isFlowsLoading?.value && id.value.length === 0) {
-    router.replace({name: 'NotFound'})
-    return
-  }
-})
 </script>
 
 <template>

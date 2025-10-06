@@ -39,7 +39,7 @@ async function onSave() {
     const finalSlug = slug.value ? slugify(slug.value) : undefined
     const flow = await create.mutateAsync({name: trimmedName, slug: finalSlug})
     visible.value = false
-    await router.push({name: 'DetailFlow', params: {slug: flow.slug}})
+    await router.push({name: 'Flow', params: {slug: flow.slug}})
   } catch (e: any) {
     const msg = e?.message || 'Failed to create flow'
     errorMsg.value = /409|exists/i.test(String(msg)) ? 'Slug already exists. Try another.' : msg

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import {computed} from 'vue'
+import {computed, onMounted} from 'vue'
 import {useFlows} from '@/composables/data/flows/useFlows'
 import {useFlowById} from '@/composables/data/flows/useFlowById'
+import {useRouter} from 'vue-router'
 
 const props = defineProps<{ slug: string }>()
 const slug = computed(() => String(props.slug ?? ''))
@@ -14,6 +15,15 @@ const id = computed(() => {
 })
 
 const {data: flow, isLoading, isError, error} = useFlowById(id)
+
+const router = useRouter()
+
+onMounted(() => {
+  if (id.value.length === 0) {
+    router.replace({name: 'NotFound'})
+    return
+  }
+})
 </script>
 
 <template>
@@ -37,6 +47,7 @@ const {data: flow, isLoading, isError, error} = useFlowById(id)
           {{ flow?.name }}
         </h1>
       </header>
+      <router-view/>
     </div>
   </section>
 </template>

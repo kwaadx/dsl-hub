@@ -9,24 +9,30 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/flows/:slug',
-    name: 'DetailFlow',
-    component: () => import('@/views/flow/DetailFlowView.vue'),
+    name: 'Flow',
+    component: () => import('@/views/FlowView.vue'),
     meta: {layout: 'main'},
     props: true,
-  },
-  {
-    path: '/flows/:slug/pipelines',
-    name: 'PipelineFlow',
-    component: () => import('@/views/flow/PipelineFlowView.vue'),
-    meta: {layout: 'main'},
-    props: true,
-  },
-  {
-    path: '/flows/:slug/threads',
-    name: 'PipelineFlow',
-    component: () => import('@/views/flow/ThreadFlowView.vue'),
-    meta: {layout: 'main'},
-    props: true,
+    children: [
+      {
+        path: 'details',
+        name: 'DetailFlow',
+        component: () => import('@/views/flow/DetailFlowView.vue'),
+        props: true,
+      },
+      {
+        path: 'pipelines',
+        name: 'PipelineFlow',
+        component: () => import('@/views/flow/PipelineFlowView.vue'),
+        props: true,
+      },
+      {
+        path: 'threads',
+        name: 'ThreadFlow',
+        component: () => import('@/views/flow/ThreadFlowView.vue'),
+        props: true,
+      },
+    ],
   },
   {
     path: '/:pathMatch(.*)*',

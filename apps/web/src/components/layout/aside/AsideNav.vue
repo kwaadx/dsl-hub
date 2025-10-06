@@ -127,7 +127,7 @@ function setOpen(flowId: string, value: boolean) {
         class="h-12 group flex items-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 select-none"
       >
         <RouterLink
-          :to="{ name: 'DetailFlow', params: { slug: flow.slug } }"
+          :to="{ name: 'Flow', params: { slug: flow.slug } }"
           class="block w-full text-left px-3 py-2 truncate"
         >
           <span v-html="highlight(flow.name, props.search)"></span>
