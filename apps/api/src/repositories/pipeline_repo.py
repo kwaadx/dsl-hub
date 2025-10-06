@@ -9,14 +9,14 @@ class PipelineRepo:
 
     def list_for_flow(self, flow_id: str, published: Optional[bool] = None) -> List[Pipeline]:
         stmt = select(Pipeline).where(Pipeline.flow_id == flow_id)
-        if published:
+        if published is True:
             stmt = stmt.where(Pipeline.is_published == True)
         elif published is False:
             stmt = stmt.where(Pipeline.is_published == False)
         stmt = stmt.order_by(Pipeline.created_at.desc())
         return list(self.db.execute(stmt).scalars().all())
 
-    def get(self, pid: str) -> Pipeline:
+    def get(self, pid: str) -> Optional[Pipeline]:
         return self.db.get(Pipeline, pid)
 
     def create_version(
@@ -45,8 +45,10 @@ class PipelineRepo:
         self.db.add(p); self.db.flush()
         return p
 
-    def publish(self, pid: str) -> Pipeline:
+    def publish(self, pid: str) -> Optional[Pipeline]:
         p = self.get(pid)
+        if p is None:
+            return None
         # Lock all pipelines of the same flow to avoid concurrent publish races
         _ = (
             self.db.query(Pipeline)

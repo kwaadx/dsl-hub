@@ -6,6 +6,7 @@ from sqlalchemy import select
 from datetime import datetime, UTC
 import uuid
 
+from ..middleware.error import AppError
 from ..models import Thread, Message, ThreadSummary, FlowSummary
 from ..services.llm import LLMClient
 
@@ -47,7 +48,7 @@ class SummaryService:
     async def run_thread_summary(self, thread_id: str) -> ThreadSummary:
         t = self.db.get(Thread, thread_id)
         if not t:
-            raise ValueError("Thread not found")
+            raise AppError(status=404, code="THREAD_NOT_FOUND", message="Thread not found")
         # Collect messages for summarization (MVP: whole thread)
         messages_payload = self._collect_messages_payload(thread_id)
         # Call LLM to summarize (mock by default)
@@ -114,7 +115,7 @@ class SummaryService:
         """
         t = self.db.get(Thread, thread_id)
         if not t:
-            raise ValueError("Thread not found")
+            raise AppError(status=404, code="THREAD_NOT_FOUND", message="Thread not found")
         # If already closed, return latest existing summary info without side effects
         if getattr(t, "closed_at", None):
             # Latest thread summary

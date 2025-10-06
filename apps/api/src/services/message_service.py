@@ -1,8 +1,12 @@
 import uuid
+from datetime import datetime
 from typing import Any, Optional, List, Dict
+
 from sqlalchemy.orm import Session
-from ..repositories.message_repo import MessageRepo
+
 from ..middleware.error import AppError
+from ..models import Thread
+from ..repositories.message_repo import MessageRepo
 
 ALLOWED_ROLES = {"user", "assistant", "system", "tool"}
 ALLOWED_FORMATS = {"text", "markdown", "json", "buttons", "card"}
@@ -11,6 +15,12 @@ class MessageService:
     def __init__(self, db: Session):
         self.db = db
         self.repo = MessageRepo(db)
+
+    def _require_thread(self, thread_id: str) -> Thread:
+        thread = self.db.get(Thread, thread_id)
+        if thread is None:
+            raise AppError(status=404, code="THREAD_NOT_FOUND", message="Thread not found")
+        return thread
 
     def add(
         self,
@@ -22,6 +32,12 @@ class MessageService:
         tool_result: Optional[Any] = None,
         fmt: str = "text",
     ) -> Dict[str, str]:
+        thread = self._require_thread(thread_id)
+        if getattr(thread, "archived", False):
+            raise AppError(status=409, code="THREAD_ARCHIVED", message="Thread is archived")
+        if getattr(thread, "closed_at", None):
+            raise AppError(status=409, code="THREAD_CLOSED", message="Thread is closed")
+
         if role not in ALLOWED_ROLES:
             raise AppError(status=400, code="BAD_ROLE", message=f"Invalid role: {role}")
         if fmt not in ALLOWED_FORMATS:
@@ -39,14 +55,22 @@ class MessageService:
         return dict(id=str(m.id), created_at=m.created_at.isoformat())
 
     def list(self, thread_id: str, limit: int = 50, before: Optional[str] = None) -> List[Dict[str, Any]]:
-        from datetime import datetime
+        self._require_thread(thread_id)
         from ..models import Message
+        if limit <= 0 or limit > 200:
+            raise AppError(status=400, code="BAD_LIMIT", message="limit must be between 1 and 200")
         q = self.db.query(Message).filter(Message.thread_id == thread_id)
         if before:
-            ts: str = before
-            if isinstance(ts, str) and ts.endswith("Z"):
+            ts = before
+            if not isinstance(ts, str):
+                raise AppError(status=400, code="BAD_BEFORE_CURSOR", message="before must be an ISO timestamp string")
+            if ts.endswith("Z"):
                 ts = ts.replace("Z", "+00:00")
-            q = q.filter(Message.created_at < datetime.fromisoformat(ts))
+            try:
+                cutoff = datetime.fromisoformat(ts)
+            except ValueError as exc:
+                raise AppError(status=400, code="BAD_BEFORE_CURSOR", message="Invalid before timestamp") from exc
+            q = q.filter(Message.created_at < cutoff)
         q = q.order_by(Message.created_at.desc()).limit(limit)
         rows = q.all()
         return [{

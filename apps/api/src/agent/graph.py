@@ -79,13 +79,16 @@ class AgentRunner:
 
         # helpers to reduce duplication
         def _with_repo(op):
-            session_factory = self.session_factory()
+            session = self.session_factory()
             try:
-                repo = RunsRepo(session_factory)
+                repo = RunsRepo(session)
                 op(repo)
-                session_factory.commit()
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
             finally:
-                session_factory.close()
+                session.close()
 
         def _tick(stage: str, status: str, result: Dict[str, Any] | None = None) -> None:
             def apply(repo: RunsRepo) -> None:
@@ -96,12 +99,17 @@ class AgentRunner:
         # --- nodes ---
         async def init_node(s: AgentState) -> AgentState:
             await bus.publish(s["thread_id"], "run.started", {"run_id": s["run_id"], "stage": "discovery"})
-            session_factory = self.session_factory()
-            runs_repo = RunsRepo(session_factory)
-            runs_repo.start(s["run_id"], s["flow_id"], s["thread_id"], stage="discovery", source=s["user_message"])
-            runs_repo.tick(s["run_id"], stage="discovery", status="succeeded")
-            session_factory.commit()
-            session_factory.close()
+            session = self.session_factory()
+            try:
+                runs_repo = RunsRepo(session)
+                runs_repo.start(s["run_id"], s["flow_id"], s["thread_id"], stage="discovery", source=s["user_message"])
+                runs_repo.tick(s["run_id"], stage="discovery", status="succeeded")
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
+            finally:
+                session.close()
             return s
 
         async def search_existing(s: AgentState) -> AgentState:
@@ -178,14 +186,38 @@ class AgentRunner:
             await bus.publish(s["thread_id"], "run.stage",
                               {"run_id": s["run_id"], "stage": "persist", "status": "running"})
             session_factory = self.session_factory()
-            pipelines = PipelineService(session_factory)
-            content = cast(Dict[str, Any], s.get("draft") or {})
-            p = pipelines.create_version(s["flow_id"], content)
-            version_str = str(p.version) if getattr(p, "version", None) is not None else ""
-            s["persisted"] = {"pipeline_id": str(p.id), "version": version_str}
+            persisted_payload: Dict[str, Any] | None = None
+            try:
+                pipelines = PipelineService(session_factory)
+                content = cast(Dict[str, Any], s.get("draft") or {})
+                p = pipelines.create_version(s["flow_id"], content)
+                version_str = str(p.version) if getattr(p, "version", None) is not None else ""
+                persisted_payload = {
+                    "pipeline_id": str(p.id),
+                    "version": version_str,
+                    "status": p.status,
+                }
+                session_factory.commit()
+            except Exception as exc:
+                session_factory.rollback()
+                error_message = getattr(exc, "message", str(exc))
+                _tick("persist", "failed", result={"error": error_message})
+                await bus.publish(s["thread_id"], "run.stage",
+                                  {"run_id": s["run_id"], "stage": "persist", "status": "failed", "error": error_message})
+                raise
+            finally:
+                session_factory.close()
+
+            assert persisted_payload is not None
+            s["persisted"] = {
+                "pipeline_id": persisted_payload["pipeline_id"],
+                "version": persisted_payload["version"],
+            }
             _tick("persist", "succeeded")
             await bus.publish(s["thread_id"], "pipeline.created",
-                              {"pipeline_id": str(p.id), "version": version_str, "status": p.status})
+                              persisted_payload)
+            await bus.publish(s["thread_id"], "run.stage",
+                              {"run_id": s["run_id"], "stage": "persist", "status": "succeeded"})
             return s
 
         def should_publish(s: AgentState) -> str:
@@ -195,12 +227,33 @@ class AgentRunner:
             await bus.publish(s["thread_id"], "run.stage",
                               {"run_id": s["run_id"], "stage": "publish", "status": "running"})
             session_factory = self.session_factory()
-            pipelines = PipelineService(session_factory)
-            if s.get("persisted"):
-                pipelines.publish(s["persisted"]["pipeline_id"])
-                await bus.publish(s["thread_id"], "pipeline.published",
-                                  {"pipeline_id": s["persisted"]["pipeline_id"], "version": s["persisted"]["version"]})
+            published_payload: Dict[str, str] | None = None
+            try:
+                pipelines = PipelineService(session_factory)
+                if s.get("persisted"):
+                    pipelines.publish(s["persisted"]["pipeline_id"])
+                    published_payload = {
+                        "pipeline_id": s["persisted"]["pipeline_id"],
+                        "version": s["persisted"]["version"],
+                    }
+                    session_factory.commit()
+                else:
+                    session_factory.commit()
+            except Exception as exc:
+                session_factory.rollback()
+                error_message = getattr(exc, "message", str(exc))
+                _tick("publish", "failed", result={"error": error_message})
+                await bus.publish(s["thread_id"], "run.stage",
+                                  {"run_id": s["run_id"], "stage": "publish", "status": "failed", "error": error_message})
+                raise
+            finally:
+                session_factory.close()
+
+            if published_payload:
+                await bus.publish(s["thread_id"], "pipeline.published", published_payload)
             _tick("publish", "succeeded")
+            await bus.publish(s["thread_id"], "run.stage",
+                              {"run_id": s["run_id"], "stage": "publish", "status": "succeeded"})
             return s
 
         async def finish_node(s: AgentState) -> AgentState:
