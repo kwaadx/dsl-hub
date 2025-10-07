@@ -1,11 +1,11 @@
 <script lang="ts" setup>
-import Select from 'primevue/select'
-import {computed} from 'vue'
-import {useI18n} from '@/composables/useI18n'
-import type {I18nLocale} from '@/plugins/i18n'
-import {flagMap} from '@/plugins/i18n'
+import { computed, ref } from 'vue'
+import TieredMenu from 'primevue/tieredmenu'
+import { useI18n } from '@/composables/useI18n'
+import type { I18nLocale } from '@/plugins/i18n'
+import { flagMap } from '@/plugins/i18n'
 
-const {locale, availableLocales, setLocale} = useI18n()
+const { locale, availableLocales, setLocale } = useI18n()
 
 type LangOption = { code: I18nLocale; name: string; flag: string }
 
@@ -25,29 +25,38 @@ const languages = computed<LangOption[]>(() => {
 
 function onChangeLang(next: I18nLocale) {
   if (next !== locale.value) setLocale(next)
+  menuRef.value?.hide()
+}
+
+const menuRef = ref()
+const menuItems = computed(() =>
+  languages.value.map((opt) => ({
+    id: opt.code,
+    label: opt.name,
+    icon: `fi fi-${opt.flag}`,
+    command: () => onChangeLang(opt.code),
+  }))
+)
+
+function toggleMenu(event: MouseEvent) {
+  menuRef.value?.toggle(event)
 }
 </script>
 
 <template>
-  <Select
-    v-model="locale"
-    :options="languages"
-    optionLabel="name"
-    optionValue="code"
-    class="h-10"
-    @update:modelValue="onChangeLang"
+  <div
+    class="h-8 w-8 inline-flex items-center justify-center rounded-md cursor-pointer bg-surface-100 dark:bg-white"
+    role="button"
+    aria-label="Change language"
+    @click="toggleMenu"
   >
-    <template #value="{ value }">
-      <span v-if="value" class="inline-flex items-center gap-2">
-        <span :class="['fi', `fi-${flagMap[value as I18nLocale]}`]"/>
-      </span>
-    </template>
+    <span :class="['fi', `fi-${flagMap[locale as I18nLocale]}`]" />
+  </div>
 
-    <template #option="{ option }">
-      <span class="inline-flex items-center gap-2">
-        <span :class="['fi', `fi-${option.flag}`]"/>
-        <span>{{ option.name }}</span>
-      </span>
-    </template>
-  </Select>
+  <TieredMenu
+    ref="menuRef"
+    :model="menuItems"
+    popup
+    appendTo="body"
+  />
 </template>
