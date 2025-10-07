@@ -11,7 +11,18 @@ type LangOption = { code: I18nLocale; name: string; flag: string }
 
 const localeNames: Record<I18nLocale, string> = {
   en: 'English',
+  es: 'Español',
+  fr: 'Français',
+  de: 'Deutsch',
+  'pt-BR': 'Português (Brasil)',
+  it: 'Italiano',
+  pl: 'Polski',
   uk: 'Українська',
+  ar: 'العربية',
+  'zh-CN': '简体中文',
+  ja: '日本語',
+  ko: '한국어',
+  hi: 'हिन्दी',
 }
 
 const languages = computed<LangOption[]>(() => {

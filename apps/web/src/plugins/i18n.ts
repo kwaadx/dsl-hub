@@ -1,27 +1,108 @@
 import { createI18n, type DefineLocaleMessage } from 'vue-i18n'
 import en from '@/locales/en.json'
+import es from '@/locales/es.json'
+import fr from '@/locales/fr.json'
+import de from '@/locales/de.json'
+import ptBR from '@/locales/pt-BR.json'
+import it from '@/locales/it.json'
+import pl from '@/locales/pl.json'
+import uk from '@/locales/uk.json'
+import ar from '@/locales/ar.json'
+import zhCN from '@/locales/zh-CN.json'
+import ja from '@/locales/ja.json'
+import ko from '@/locales/ko.json'
+import hi from '@/locales/hi.json'
 
-export type I18nLocale = 'en' | 'uk'
+export type I18nLocale =
+  | 'en'
+  | 'es'
+  | 'fr'
+  | 'de'
+  | 'pt-BR'
+  | 'it'
+  | 'pl'
+  | 'uk'
+  | 'ar'
+  | 'zh-CN'
+  | 'ja'
+  | 'ko'
+  | 'hi'
+
 export const flagMap: Record<I18nLocale, string> = {
   en: 'us',
+  es: 'es',
+  fr: 'fr',
+  de: 'de',
+  'pt-BR': 'br',
+  it: 'it',
+  pl: 'pl',
   uk: 'ua',
+  ar: 'sa',
+  'zh-CN': 'cn',
+  ja: 'jp',
+  ko: 'kr',
+  hi: 'in',
 }
-export const SUPPORTED_LOCALES: readonly I18nLocale[] = ['en', 'uk'] as const
+
+export const SUPPORTED_LOCALES: readonly I18nLocale[] = [
+  'en',
+  'es',
+  'fr',
+  'de',
+  'pt-BR',
+  'it',
+  'pl',
+  'uk',
+  'ar',
+  'zh-CN',
+  'ja',
+  'ko',
+  'hi',
+] as const
+
 const FALLBACK_LOCALE: I18nLocale = 'en'
 
 function normalizeLocale(input?: string | null): I18nLocale {
   const raw = (input ?? '').toLowerCase()
-  const short = (raw.split('-')[0] || '') as I18nLocale
-  return (SUPPORTED_LOCALES.includes(short) ? short : FALLBACK_LOCALE) as I18nLocale
+  // Map lowercase inputs to canonical codes used in SUPPORTED_LOCALES
+  const CANONICAL: Record<string, I18nLocale> = {
+    'en': 'en',
+    'es': 'es',
+    'fr': 'fr',
+    'de': 'de',
+    'pt-br': 'pt-BR',
+    'it': 'it',
+    'pl': 'pl',
+    'uk': 'uk',
+    'ar': 'ar',
+    'zh-cn': 'zh-CN',
+    'ja': 'ja',
+    'ko': 'ko',
+    'hi': 'hi',
+  }
+  if (raw in CANONICAL) return CANONICAL[raw]
+  const short = raw.split('-')[0]
+  return (CANONICAL[short] ?? FALLBACK_LOCALE) as I18nLocale
 }
 
 const stored = normalizeLocale(localStorage.getItem('locale'))
 const browser = normalizeLocale(navigator.language)
 const initialLocale: I18nLocale = stored || browser || FALLBACK_LOCALE
 
-const messages: Record<I18nLocale, DefineLocaleMessage> = {
+const messages: Partial<Record<I18nLocale, DefineLocaleMessage>> = {
   en,
-  uk: {},
+  es,
+  fr,
+  de,
+  'pt-BR': ptBR,
+  it,
+  pl,
+  uk,
+  ar,
+  'zh-CN': zhCN,
+  ja,
+  ko,
+  hi,
 }
 
 export const i18n = createI18n({

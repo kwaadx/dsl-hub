@@ -14,7 +14,7 @@ export function useI18n() {
   })
 
   const availableLocales = computed<I18nLocale[]>(() =>
-    SUPPORTED_LOCALES.filter(l => composer.availableLocales.includes(l)) as I18nLocale[]
+    SUPPORTED_LOCALES as I18nLocale[]
   )
 
   const exists = (key: string, loc?: I18nLocale) =>
