@@ -12,6 +12,7 @@ const routes: RouteRecordRaw[] = [
     name: 'Flow',
     component: () => import('@/views/FlowView.vue'),
     meta: {layout: 'main'},
+    redirect: {name: 'DetailFlow'},
     props: true,
     children: [
       {

@@ -37,7 +37,7 @@ const {data: flow, isLoading, isError, error} = useFlowById(id)
           {{ flow?.name }}
         </h1>
       </header>
-      <router-view />
+      detail
     </div>
   </section>
 </template>
