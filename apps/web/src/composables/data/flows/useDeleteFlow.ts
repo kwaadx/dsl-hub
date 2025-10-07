@@ -1,5 +1,5 @@
 import {useMutation, useQueryClient} from '@tanstack/vue-query';
-import {deleteFlowApi} from '@/services/flow';
+import {deleteFlowApi, type Flow} from '@/services/flow';
 import {qk} from '../queryKeys';
 
 export function useDeleteFlow() {
@@ -9,10 +9,17 @@ export function useDeleteFlow() {
     mutationFn: ({id, signal}: { id: string; signal?: AbortSignal }) => deleteFlowApi(id, signal),
 
     onSuccess: async (_data, {id}) => {
-      qc.removeQueries({queryKey: qk.flows.detail(id), exact: true});
+      const listKey = qk.flows.list();
+      const prevList = qc.getQueryData<Flow[] | undefined>(listKey) ?? [];
+      const deleted = prevList.find(f => f.id === id);
 
-      await qc.invalidateQueries({queryKey: qk.flows.base()});
-      await qc.refetchQueries({queryKey: qk.flows.base(), type: 'active'});
+      qc.removeQueries({queryKey: qk.flows.detail(id), exact: true});
+      if (deleted?.slug) {
+        qc.removeQueries({queryKey: qk.flows.detail(`slug:${deleted.slug}`), exact: true});
+      }
+
+      const next = prevList.filter(f => f.id !== id);
+      qc.setQueryData(listKey, next);
     },
   });
 }

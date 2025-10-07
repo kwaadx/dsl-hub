@@ -9,10 +9,23 @@ export function useUpdateFlow() {
     mutationFn: ({id, patch}: { id: string; patch: Partial<Flow> }) => updateFlowApi(id, patch),
 
     onSuccess: async (updated: Flow) => {
-      qc.setQueryData(qk.flows.detail(updated.id), updated);
+      const listKey = qk.flows.list();
+      const prevList = qc.getQueryData<Flow[] | undefined>(listKey) ?? [];
+      const prevItem = prevList.find(f => f.id === updated.id);
+      const oldSlug = prevItem?.slug;
 
-      await qc.invalidateQueries({queryKey: qk.flows.base()});
-      await qc.refetchQueries({queryKey: qk.flows.base(), type: 'active'});
+      qc.setQueryData(qk.flows.detail(updated.id), updated);
+      if (oldSlug && oldSlug !== updated.slug) {
+        qc.removeQueries({queryKey: qk.flows.detail(`slug:${oldSlug}`), exact: true});
+      }
+      if (updated.slug) {
+        qc.setQueryData(qk.flows.detail(`slug:${updated.slug}`), updated);
+      }
+
+      const next = prevList.length
+        ? prevList.map(f => (f.id === updated.id ? {...f, ...updated} : f))
+        : [updated];
+      qc.setQueryData(listKey, next);
     },
   });
 }
