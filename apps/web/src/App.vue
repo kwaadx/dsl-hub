@@ -16,7 +16,9 @@ const CurrentLayout = computed(() => {
 
 const toast = useToast()
 onMounted(() => {
-  registerToast((p) => toast.add(p))
+  registerToast(({ severity='info', summary, detail, life=4000 }) => {
+    toast.add({ severity, summary, detail, life })
+  })
 })
 </script>
 

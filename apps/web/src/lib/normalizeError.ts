@@ -1,4 +1,4 @@
-import {isHttpError} from '@/core/http/http';
+import axios, { AxiosError } from 'axios';
 
 export type NormalizedError = {
   message: string;
@@ -8,12 +8,22 @@ export type NormalizedError = {
 };
 
 export function normalizeError(err: unknown): NormalizedError {
-  if (isHttpError(err)) {
+  // Axios error shape
+  if (axios.isAxiosError(err)) {
+    const axErr = err as AxiosError<any>;
+    const status = axErr.response?.status;
+    const data = axErr.response?.data as any;
+    const unified = data && typeof data === 'object' ? (data as any).error : null;
+    const message =
+      (unified && typeof unified.message === 'string' && unified.message) ||
+      (data && (data.message || (typeof data.error === 'string' ? data.error : null) || data?.detail)) ||
+      String(axErr.message);
+    const code = (unified && unified.code) ?? (data && (data.code ?? data.errorCode)) ?? (axErr as any)?.code;
     return {
-      message: String(err.message).slice(0, 400),
-      status: err.status,
-      code: err.code,
-      details: err.payload,
+      message: String(message).slice(0, 400),
+      status,
+      code,
+      details: data,
     };
   }
   if (err instanceof Error) {

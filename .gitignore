@@ -150,3 +150,7 @@ certs/*.pem
 certs/*.key
 !certs/README.md
 !certs/*.example*
+
+# --- Exceptions: allow Web src libs to be tracked ---
+!apps/web/src/lib/
+!apps/web/src/lib/**

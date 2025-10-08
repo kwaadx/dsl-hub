@@ -1,7 +1,7 @@
 import { createApp } from 'vue'
 
 import { VueQueryPlugin } from '@tanstack/vue-query'
-import { queryClient } from '@/core/query'
+import { queryClient } from '@/lib/query'
 import { i18n } from '@/plugins/i18n'
 
 import PrimeVue from 'primevue/config'

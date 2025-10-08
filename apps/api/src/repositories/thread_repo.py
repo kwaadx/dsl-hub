@@ -29,19 +29,28 @@ class ThreadRepo:
         ).scalar_one_or_none()
 
         snapshot_id = str(uuid.uuid4())
-        t = Thread(id=thread_id, flow_id=flow_id, context_snapshot_id=snapshot_id)
+        # Important: insert ContextSnapshot first so DB trigger on thread can validate flow match
         snap = ContextSnapshot(
             id=snapshot_id,
             flow_id=flow_id,
-            origin_thread_id=thread_id,
+            origin_thread_id=None,  # set after thread is created to avoid circular insert ordering
             schema_def_id=schema_def_id,
             flow_summary_id=fs.id if fs else None,
             pipeline_id=pub.id if pub else None,
             notes={},
         )
-        self.db.add_all([t, snap])
+        t = Thread(id=thread_id, flow_id=flow_id, context_snapshot_id=snapshot_id)
+        # Add both; SQLAlchemy will insert snapshot first due to FK from thread -> snapshot and no reverse FK set
+        self.db.add_all([snap, t])
+        self.db.flush()
+        # Now that thread exists, backfill origin_thread_id for the snapshot
+        snap.origin_thread_id = thread_id
         self.db.flush()
         return t
 
     def get(self, thread_id: str) -> Optional[Thread]:
         return self.db.get(Thread, thread_id)
+
+    def list_for_flow(self, flow_id: str) -> list[Thread]:
+        stmt = select(Thread).where(Thread.flow_id == flow_id).order_by(Thread.started_at.desc())
+        return list(self.db.execute(stmt).scalars().all())

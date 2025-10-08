@@ -37,4 +37,4 @@ export function makeQK<const Entities extends readonly string[]>(
   }, {} as any);
 }
 
-export const qk = makeQK(['flows'] as const);
+export const qk = makeQK(['flows', 'threads'] as const);

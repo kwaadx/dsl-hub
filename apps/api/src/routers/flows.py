@@ -32,6 +32,12 @@ def create_thread_for_flow(flow_id: str, db: Session = Depends(get_db)) -> Threa
     from ..services.thread_service import ThreadService
     return ThreadOut(**ThreadService(db).create(flow_id))
 
+@router.get("/{flow_id}/threads", response_model=list[ThreadOut])
+def list_threads_for_flow(flow_id: str, db: Session = Depends(get_db)) -> list[ThreadOut]:
+    from ..services.thread_service import ThreadService
+    rows = ThreadService(db).list_for_flow(flow_id)
+    return [ThreadOut(**row) for row in rows]
+
 @router.get("/{flow_id}/pipelines")
 def list_flow_pipelines(flow_id: str, published: int | None = None, db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
     return PipelineService(db).list_for_flow(flow_id, published=published)
