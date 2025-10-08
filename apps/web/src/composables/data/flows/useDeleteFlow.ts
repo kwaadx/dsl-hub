@@ -1,12 +1,14 @@
 import {useMutation, useQueryClient} from '@tanstack/vue-query';
 import {deleteFlowApi, type Flow} from '@/services/flow';
 import {qk} from '../queryKeys';
+import { retry404Safe } from '@/lib/retry';
 
 export function useDeleteFlow() {
   const qc = useQueryClient();
 
   return useMutation({
     mutationFn: ({id, signal}: { id: string; signal?: AbortSignal }) => deleteFlowApi(id, signal),
+    retry: retry404Safe,
 
     onSuccess: async (_data, {id}) => {
       const listKey = qk.flows.list();

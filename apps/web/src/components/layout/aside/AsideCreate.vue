@@ -3,6 +3,7 @@ import {ref, computed} from 'vue'
 import {useRouter} from 'vue-router'
 import {useCreateFlow} from '@/composables/data/flows/useCreateFlow'
 import {useNameSlugSync} from '@/composables/forms/useNameSlugSync'
+import UiErrorAlert from '@/components/UiErrorAlert.vue'
 
 const visible = ref(false)
 const name = ref('')
@@ -96,9 +97,7 @@ async function onSave() {
         </div>
       </div>
 
-      <div v-if="errorMsg" class="p-2 rounded bg-red-500/10 text-red-600 dark:text-red-400">
-        {{ errorMsg }}
-      </div>
+      <UiErrorAlert v-if="errorMsg" :error="errorMsg" size="sm" />
 
       <div class="flex justify-end gap-2 pt-2">
         <Button type="button" label="Cancel" severity="secondary" :disabled="isSubmitting"

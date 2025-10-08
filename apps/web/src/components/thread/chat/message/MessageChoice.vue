@@ -1,9 +1,6 @@
 <script lang="ts" setup>
 import {ref} from 'vue'
 
-import RadioButton from 'primevue/radiobutton'
-import Button from 'primevue/button'
-
 const props = withDefaults(defineProps<{
   label: string
   options: Array<{ label: string; value: string }>

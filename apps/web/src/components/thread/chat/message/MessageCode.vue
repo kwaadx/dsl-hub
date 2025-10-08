@@ -1,6 +1,4 @@
 <script lang="ts" setup>
-import Button from 'primevue/button'
-
 const props = defineProps<{ language?: string; code: string }>()
 
 async function copy() {

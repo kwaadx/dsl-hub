@@ -7,7 +7,7 @@ const props = withDefaults(defineProps<{
   gap?: number | string
   durationMs?: number
 }>(), {
-  size: 12,
+  size: 10,
   color: 'currentColor',
   gap: 12,
   durationMs: 1200,

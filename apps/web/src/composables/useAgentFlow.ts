@@ -1,5 +1,5 @@
 import {ref} from 'vue'
-import type {AgentEvent, ChatMessage, UserMessage} from '@/components/flow/agent/types'
+import type {AgentEvent, ChatMessage, UserMessage} from '@/types/chat'
 
 export function useAgentFlow(opts: {
   onAppend: (m: ChatMessage) => void

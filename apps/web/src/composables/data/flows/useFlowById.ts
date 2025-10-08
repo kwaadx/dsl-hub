@@ -2,6 +2,7 @@ import { computed, type MaybeRef, unref } from 'vue'
 import { useQuery, keepPreviousData } from '@tanstack/vue-query'
 import { fetchFlowByIdApi, type Flow } from '@/services/flow'
 import { qk } from '../queryKeys'
+import { retry404Safe } from '@/lib/retry'
 
 export function useFlowById(id: MaybeRef<string | null | undefined>) {
   const idStr = computed(() => String(unref(id) ?? '').trim())
@@ -17,11 +18,7 @@ export function useFlowById(id: MaybeRef<string | null | undefined>) {
     gcTime: 5 * 60_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
-    retry: (failureCount, error: any) => {
-      const status = error?.status ?? error?.response?.status
-      if (status === 404) return false
-      return failureCount < 3
-    },
+    retry: retry404Safe,
     select: (data) => Object.freeze({ ...data }),
   })
 }

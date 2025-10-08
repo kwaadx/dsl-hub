@@ -1,7 +1,8 @@
 import {computed, type MaybeRef, unref} from 'vue';
-import {useQuery} from '@tanstack/vue-query';
+import {useQuery, keepPreviousData} from '@tanstack/vue-query';
 import {fetchThreadsForFlowApi, type Thread} from '@/services/thread';
 import {qk} from '../queryKeys';
+import { retry404Safe } from '@/lib/retry';
 
 export function useThreadsForFlow(flowId: MaybeRef<string | null | undefined>) {
   const idStr = computed(() => String(unref(flowId) ?? ''));
@@ -14,5 +15,10 @@ export function useThreadsForFlow(flowId: MaybeRef<string | null | undefined>) {
     enabled,
     staleTime: 10_000,
     gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    placeholderData: keepPreviousData,
+    retry: retry404Safe,
+    select: (data) => Object.freeze([...(data ?? [])]) as unknown as Thread[],
   });
 }

@@ -1,7 +1,4 @@
 <script lang="ts" setup>
-import Card from 'primevue/card'
-import Tag from 'primevue/tag'
-
 const props = defineProps<{
   card: {
     title: string

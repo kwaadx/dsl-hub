@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import {ref, nextTick, computed, onMounted} from 'vue'
 import {useScroll, useStorage, useEventListener} from '@vueuse/core'
-import MessageRenderer from '@/components/flow/agent/MessageRenderer.vue'
-import type {ChatMessage, UserMessage, AgentEvent} from '@/components/flow/agent/types'
+import MessageRenderer from '@/components/thread/chat/MessageRenderer.vue'
+import type {ChatMessage, UserMessage, AgentEvent} from '@/types/chat'
 import {useAgentFlow} from '@/composables/useAgentFlow'
 import {useI18n} from '@/composables/useI18n'
 
 const {t} = useI18n()
 
-const props = defineProps<{ flowId?: string }>()
+const props = defineProps<{ flowId?: string; threadId?: string }>()
 
-const storageKey = computed(() => `chatflow:${props.flowId ?? 'demo'}`)
+const storageKey = computed(() => `chatflow:${props.flowId ?? 'demo'}:${props.threadId ?? 'default'}`)
 const history = useStorage<ChatMessage[]>(storageKey.value, [], localStorage, {
   serializer: {
     read: (v) => (v ? JSON.parse(v) : []),
@@ -86,7 +86,7 @@ onMounted(() => {
       <MessageRenderer
         v-for="m in history"
         :key="m.id"
-        :msg="m"
+        :message="m"
         @act="(ev) => sendToAgent(ev as AgentEvent)"
       />
 
@@ -110,7 +110,7 @@ onMounted(() => {
           placeholder="Напишіть повідомлення… (Ctrl/⌘ + Enter — надіслати)"
           @keyup.enter="send"
         />
-        <Button :label="t('button.send')" icon="pi pi-send" @click="send"
+        <Button label="Send" icon="pi pi-send" @click="send"
                 :disabled="!input.trim()"/>
       </div>
     </div>

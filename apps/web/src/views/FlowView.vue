@@ -4,59 +4,60 @@ import {useFlows} from '@/composables/data/flows/useFlows'
 import {useFlowById} from '@/composables/data/flows/useFlowById'
 import {useRouter} from 'vue-router'
 import UiLoadingDots from '@/components/UiLoadingDots.vue'
+import UiErrorAlert from '@/components/UiErrorAlert.vue'
+import CreateThreadButton from '@/components/thread/CreateThreadButton.vue'
+import ThreadsList from '@/components/thread/ThreadsList.vue'
 
 const props = defineProps<{ slug: string }>()
 const slug = computed(() => String(props.slug ?? ''))
 
-const {data: flows, isLoading: flowsLoading} = useFlows()
-const id = computed(() => {
+const {data: flows, isLoading: flowsLoading, isError: flowsError, error: flowsErr} = useFlows()
+
+const foundFlow = computed(() => {
   const list = flows?.value ?? []
-  const found = list.find(f => f.slug === slug.value)
-  return found?.id ?? ''
+  return Array.isArray(list) ? list.find(f => f.slug === slug.value) : undefined
 })
 
+const id = computed(() => foundFlow.value?.id ?? '')
+
 const {data: flow, isLoading: flowByIdLoading, isError, error} = useFlowById(id)
+
 const router = useRouter()
 
-watch([flows, flowsLoading, slug], ([flowsVal, loading, slugVal]) => {
+watch([flows, flowsLoading, slug], ([flowsVal, loading]) => {
   if (loading) return
-  const list = flowsVal ?? []
-  if (Array.isArray(list)) {
-    const found = list.find(f => f.slug === slugVal)
-    if (!found) {
-      router.replace({name: 'NotFound'})
-    }
-  }
-}, { immediate: true })
+  const exists = (flowsVal ?? []).some((f: any) => f.slug === slug.value)
+  if (!exists) router.replace({name: 'NotFound'})
+}, {immediate: true})
 </script>
 
 <template>
   <section class="w-full flex-1 min-h-0 flex flex-col">
-    <div v-if="flowByIdLoading || flowsLoading || !flow" class="p-6 flex items-center justify-center">
-      <UiLoadingDots />
+    <UiErrorAlert v-if="flowsError" :error="flowsErr" fallback="Failed to load flows"/>
+
+    <div
+      v-else-if="flowsLoading || flowByIdLoading || (!foundFlow && !flowsLoading)"
+      class="p-6 flex items-center justify-center"
+    >
+      <UiLoadingDots/>
     </div>
 
-    <div v-else-if="isError" class="p-3 rounded bg-red-500/10 text-red-600 dark:text-red-400">
-      {{ (error as Error).message || 'Failed to load flow' }}
-    </div>
+    <UiErrorAlert v-else-if="isError" :error="error" fallback="Failed to load flow"/>
 
-    <router-view v-else v-slot="{ Component }">
+    <router-view v-else :key="id" v-slot="{ Component }">
       <component v-if="Component" :is="Component" :flow="flow"/>
-      <div v-else
-        class="flex flex-1 min-h-0 flex-col gap-3 items-stretch"
+      <div
+        v-else
         :key="`detail-flow-shell:${id}`"
+        class="flex flex-1 min-h-0 flex-col gap-3 items-stretch"
       >
-        <header class="shrink-0 flex items-center justify-between gap-2">
-          <h1 class="text-xl font-semibold truncate">
-            {{ flow?.name }}
-          </h1>
-        </header>
-
-        <nav class="shrink-0 flex items-center gap-4">
-          <Button @click="router.push({name: 'DetailFlow'})" class="text-primary-600 hover:underline">Details</Button>
-          <Button @click="router.push({name: 'PipelineFlow'})" class="text-primary-600 hover:underline">Pipelines</Button>
-          <Button @click="router.push({name: 'ThreadFlow'})" class="text-primary-600 hover:underline">Threads</Button>
-        </nav>
+        <h1 class="text-xl font-semibold truncate">
+          {{ flow?.name }}
+        </h1>
+        <div class="relative">
+          <ThreadsList :flow-id="flow!.id"/>
+          <CreateThreadButton class="!absolute !-top-2 !right-0" :flow="flow!"/>
+        </div>
       </div>
     </router-view>
   </section>

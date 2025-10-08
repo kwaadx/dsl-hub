@@ -1,6 +1,6 @@
 export type Role = 'user' | 'agent' | 'system'
 
-export type MsgText = {
+export type MessageText = {
   id: string
   role: Role
   type: 'text'
@@ -8,7 +8,7 @@ export type MsgText = {
   ts: number
 }
 
-export type MsgActions = {
+export type MessageActions = {
   id: string
   role: Role
   type: 'actions'
@@ -25,7 +25,7 @@ export type MsgActions = {
   ts: number
 }
 
-export type MsgChoice = {
+export type MessageChoice = {
   id: string
   role: Role
   type: 'choice'
@@ -37,7 +37,7 @@ export type MsgChoice = {
   ts: number
 }
 
-export type MsgCard = {
+export type MessageCard = {
   id: string
   role: Role
   type: 'card'
@@ -51,7 +51,7 @@ export type MsgCard = {
   ts: number
 }
 
-export type MsgNotice = {
+export type MessageNotice = {
   id: string
   role: Role
   type: 'notice'
@@ -59,7 +59,7 @@ export type MsgNotice = {
   ts: number
 }
 
-export type MsgCode = {
+export type MessageCode = {
   id: string
   role: Role
   type: 'code'
@@ -67,7 +67,7 @@ export type MsgCode = {
   ts: number
 }
 
-export type ChatMessage = MsgText | MsgActions | MsgChoice | MsgCard | MsgNotice | MsgCode
+export type ChatMessage = MessageText | MessageActions | MessageChoice | MessageCard | MessageNotice | MessageCode
 export type UserMessage = Extract<ChatMessage, { role: 'user' }>
 export type AgentEvent =
   | { kind: 'action.click'; actionId: string; msgId?: string; payload?: unknown }

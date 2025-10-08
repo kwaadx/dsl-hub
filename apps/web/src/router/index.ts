@@ -22,12 +22,18 @@ const routes: RouteRecordRaw[] = [
         path: 'pipelines/:pipelineId',
         name: 'PipelineFlow',
         component: () => import('@/views/flow/PipelineFlowView.vue'),
+        meta: {
+          layout: 'main',
+        },
         props: true,
       },
       {
         path: 'threads/:threadId',
         name: 'ThreadFlow',
         component: () => import('@/views/flow/ThreadFlowView.vue'),
+        meta: {
+          layout: 'main',
+        },
         props: true,
       },
     ],

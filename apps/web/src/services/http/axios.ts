@@ -23,14 +23,14 @@ function getAuthTokenSafely(): string | null {
 api.interceptors.request.use((config) => {
   const token = getAuthTokenSafely();
   if (token) {
-    config.headers = config.headers ?? {}
-    (config.headers as any)["Authorization"] = `Bearer ${token}`
+    config.headers = config.headers ?? {};
+    (config.headers as any)["Authorization"] = `Bearer ${token}`;
   }
 
   if (config.data != null) {
     config.headers = config.headers ?? {}
     if (!(config.headers as any)["Content-Type"]) {
-      (config.headers as any)["Content-Type"] = 'application/json'
+      (config.headers as any)["Content-Type"] = 'application/json';
     }
   }
   return config;

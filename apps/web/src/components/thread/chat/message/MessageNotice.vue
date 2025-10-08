@@ -1,6 +1,4 @@
 <script lang="ts" setup>
-import Tag from 'primevue/tag'
-
 const props = withDefaults(defineProps<{
   severity?: 'info' | 'warn' | 'success' | 'error';
   text: string
