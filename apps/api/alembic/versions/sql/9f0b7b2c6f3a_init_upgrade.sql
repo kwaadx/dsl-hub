@@ -9,6 +9,10 @@ create extension if not exists pg_trgm; -- trigram indexes
 create extension if not exists citext;
 -- case-insensitive text
 
+-- Ensure schema exists and set search_path
+create schema if not exists dsl_hub;
+set search_path to dsl_hub, public;
+
 -- ---------- Helper functions (no table dependencies) ----------
 do
 $$
@@ -323,18 +327,18 @@ create index if not exists validation_issue_run_idx
 
 create table if not exists agent_log
 (
-    id         uuid primary key     default gen_random_uuid(),
-    flow_id    uuid        references flow (id) on delete set null,
-    thread_id  uuid        references thread (id) on delete set null,
-    level      text        not null, -- debug|info|warn|error
-    event      text        not null,
-    data       jsonb,
-    created_at timestamptz not null default now(),
-    constraint agent_log_level_ck check (level in ('debug', 'info', 'warn', 'error'))
+  id         uuid primary key,
+  run_id     text not null,
+  thread_id  text not null,
+  flow_id    text not null,
+  step       text not null,
+  level      text not null, -- info|debug|error
+  message    text not null,
+  data       jsonb,
+  created_at timestamptz not null default now()
 );
-create index if not exists agent_log_created_idx on agent_log (created_at);
-create index if not exists agent_log_flow_idx on agent_log (flow_id);
-create index if not exists agent_log_thread_idx on agent_log (thread_id);
+create index if not exists ix_agent_log_run on agent_log (run_id, created_at);
+create index if not exists ix_agent_log_thread on agent_log (thread_id, created_at);
 
 -- =========================================================
 -- 6) Summaries
@@ -508,17 +512,52 @@ create index if not exists summary_run_flow_summary_idx
 
 create table if not exists prompt_template
 (
-    key        text primary key, -- e.g. 'generate'|'self_check'|'hard_validate'|'summarize'|'migrate'
-    text       text        not null,
-    meta       jsonb       not null default '{}'::jsonb,
-    updated_at timestamptz not null default now()
+  id         uuid primary key,
+  key        text        not null,
+  version    integer     not null default 1,
+  content    jsonb       not null,
+  is_active  boolean     not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
-drop trigger if exists prompt_template_set_updated_at on prompt_template;
-create trigger prompt_template_set_updated_at
-    before update
-    on prompt_template
-    for each row
-execute function set_updated_at();
+
+-- helpful indexes / constraints
+create unique index if not exists ux_prompt_template_key_version
+  on prompt_template (key, version);
+create index if not exists ix_prompt_template_key_active
+  on prompt_template (key) where is_active;
+
+-- Seed: default agent prompts
+insert into prompt_template (id, key, version, content, is_active)
+values
+  (gen_random_uuid(), 'agent.default', 1, jsonb_build_object('system','You are a helpful agent.'), true)
+on conflict (key, version) do nothing;
+
+insert into prompt_template (id, key, version, content, is_active)
+values
+  (gen_random_uuid(), 'agent.plan', 1, jsonb_build_object('system','Plan concisely with bullet points.'), true)
+on conflict (key, version) do nothing;
+
+insert into prompt_template (id, key, version, content, is_active)
+values
+  (gen_random_uuid(), 'agent.act', 1, jsonb_build_object('system','Act: produce the next best message.'), true)
+on conflict (key, version) do nothing;
+
+insert into prompt_template (id, key, version, content, is_active)
+values
+  (gen_random_uuid(), 'agent.reflect', 1, jsonb_build_object('system','Reflect briefly on the last step.'), true)
+on conflict (key, version) do nothing;
+
+-- Ensure only one active per key (latest wins)
+with ranked as (
+  select key, id, is_active,
+         row_number() over (partition by key order by version desc) as rn
+  from prompt_template
+)
+update prompt_template p
+set is_active = case when r.rn = 1 then true else false end
+from ranked r
+where p.id = r.id;
 
 -- =========================================================
 -- 10) Schema Upgrades
@@ -574,19 +613,16 @@ create index if not exists pipeline_upgrade_run_pipeline_idx
 
 create table if not exists compat_rule
 (
-    id              uuid primary key     default gen_random_uuid(),
-    schema_def_id   uuid        not null references schema_def (id) on delete cascade,
-    compatible_with text[]      not null default '{}',
-    notes           text,
-    updated_at      timestamptz not null default now()
+  id               uuid primary key,
+  subject_kind     text not null,
+  subject_key      text not null,
+  subject_version  text not null,
+  requires_kind    text not null,
+  requires_key     text not null,
+  requires_version text not null,
+  rule             jsonb not null,
+  created_at       timestamptz not null default now()
 );
-create index if not exists compat_rule_schema_idx on compat_rule (schema_def_id);
-drop trigger if exists compat_rule_set_updated_at on compat_rule;
-create trigger compat_rule_set_updated_at
-    before update
-    on compat_rule
-    for each row
-execute function set_updated_at();
 
 -- =========================================================
 -- Cross-flow integrity functions/triggers (defined after tables)
