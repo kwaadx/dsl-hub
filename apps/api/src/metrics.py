@@ -25,6 +25,19 @@ SSE_SESSION_SECONDS = Histogram(
 AGENT_RUNS = Counter(
     "agent_runs_total", "Agent runs started", ["mode"]  # mode: suggestion|fsm
 )
+# Duration of complete agent runs (init -> finish)
+AGENT_RUN_SECONDS = Histogram(
+    "agent_run_duration_seconds", "Duration of agent runs in seconds", ["status"]
+)
+# Count of runs that failed with an exception (outside normal failed stage)
+AGENT_RUN_ERRORS = Counter(
+    "agent_run_errors_total", "Total agent runs that errored unexpectedly"
+)
+
+# Messages (chat) metrics
+MESSAGES_CREATED = Counter(
+    "messages_created_total", "Messages created and persisted to DB", ["role", "source"]  # source: route|fsm
+)
 
 # LLM metrics
 LLM_CALLS = Counter(

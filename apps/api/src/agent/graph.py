@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import uuid
+import time
+import logging
 from typing import TypedDict, Optional, Dict, Any, cast, Callable, Protocol
 
 from langgraph.graph import START, END, StateGraph
@@ -13,6 +15,9 @@ from ..services.validation_service import ValidationService
 from ..services.pipeline_service import PipelineService
 from ..services.similarity_service import SimilarityService
 from ..services.llm import LLMClient
+from ..metrics import MESSAGES_CREATED, AGENT_RUN_SECONDS, AGENT_RUN_ERRORS
+
+logger = logging.getLogger(__name__)
 
 
 class SimilarityServiceProtocol(Protocol):
@@ -126,6 +131,11 @@ class AgentRunner:
             "run_id": run_id_str,
             "will_publish": bool(opts.get("publish", False))
         }
+        start_time = time.monotonic()
+        try:
+            logger.info(f"Agent run start: flow={flow_id} thread={thread_id} run_id={run_id_str}")
+        except Exception:
+            pass
 
         # Build LangGraph
         graph = StateGraph(AgentState)  # type: ignore[arg-type]
@@ -148,6 +158,61 @@ class AgentRunner:
                 repo.tick(run_id_str, stage=stage, status=status, result=result)
 
             _with_repo(apply)
+
+        # helper: persist assistant message and emit SSE (message.created) and legacy agent.msg
+        async def _emit_message(role: str, format: str, content: Dict[str, Any]) -> str:
+            """Create Message row and emit SSE events. Returns message_id."""
+            from ..models import Message  # local import to avoid circulars at module import time
+            import uuid as _uuid
+            session = self.session_factory()
+            msg_id = str(_uuid.uuid4())
+            try:
+                m = Message(
+                    id=msg_id,
+                    thread_id=state["thread_id"],  # type: ignore[index]
+                    role=role,
+                    format=format,
+                    content=content,
+                )
+                session.add(m)
+                session.flush()
+                try:
+                    session.refresh(m)
+                except Exception:
+                    pass
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
+            finally:
+                session.close()
+            # Metrics: count assistant/system messages produced by FSM
+            try:
+                if MESSAGES_CREATED is not None:
+                    MESSAGES_CREATED.labels(role=str(role), source="fsm").inc()
+            except (ValueError, TypeError, RuntimeError):
+                pass
+            # Primary event for frontend
+            await bus.publish(state["thread_id"], "message.created", {  # type: ignore[index]
+                "message_id": msg_id,
+                "role": role,
+                "format": format,
+                "content": content,
+            })
+            # Compatibility: legacy agent.msg with message_id (feature-flagged)
+            try:
+                from ..config import settings as _settings
+                emit_legacy = bool(getattr(_settings, "EMIT_LEGACY_AGENT_MSG", True))
+            except Exception:
+                emit_legacy = True
+            if emit_legacy:
+                await bus.publish(state["thread_id"], "agent.msg", {  # type: ignore[index]
+                    "message_id": msg_id,
+                    "role": role,
+                    "format": format,
+                    "content": content,
+                })
+            return msg_id
 
         # --- nodes ---
         async def init_node(s: AgentState) -> AgentState:
@@ -184,8 +249,7 @@ class AgentRunner:
             draft = await self.llm.generate_pipeline(ctx, s["user_message"])
             s["draft"] = draft
             _tick("generate", "succeeded", result={"draft_head": list(draft.keys())})
-            await bus.publish(s["thread_id"], "agent.msg",
-                              {"role": "assistant", "format": "markdown", "content": {"text": "Generating pipeline..."}})
+            await _emit_message("assistant", "markdown", {"text": "Generating pipeline..."})
             await bus.publish(s["thread_id"], "run.stage",
                               {"run_id": s["run_id"], "stage": "generate", "status": "succeeded"})
             return s
@@ -197,10 +261,8 @@ class AgentRunner:
             notes = await self.llm.self_check(draft_in)
             s["notes"] = notes
             _tick("self_check", "succeeded", result={"notes": notes})
-            await bus.publish(s["thread_id"], "agent.msg", {"role": "assistant", "format": "markdown",
-                                                            "content": {"text": "Checking consistency..."}})
-            await bus.publish(s["thread_id"], "agent.msg", {"role": "assistant", "format": "json",
-                                                            "content": cast(Dict[str, Any], s.get("notes") or {})})
+            await _emit_message("assistant", "markdown", {"text": "Checking consistency..."})
+            await _emit_message("assistant", "json", cast(Dict[str, Any], s.get("notes") or {}))
             await bus.publish(s["thread_id"], "run.stage",
                               {"run_id": s["run_id"], "stage": "self_check", "status": "succeeded"})
             return s
@@ -321,6 +383,19 @@ class AgentRunner:
             finally:
                 session.close()
             await bus.publish(s["thread_id"], "run.finished", {"run_id": s["run_id"], "status": status})
+            # Observe duration metric and log finish
+            try:
+                duration = max(0.0, time.monotonic() - start_time)
+                if AGENT_RUN_SECONDS is not None:
+                    AGENT_RUN_SECONDS.labels(status=status).observe(duration)
+                try:
+                    logger.info(
+                        f"Agent run finished: run_id={s['run_id']} status={status} duration_sec={duration:.3f}"
+                    )
+                except Exception:
+                    pass
+            except (ValueError, TypeError, RuntimeError):
+                pass
             return s
 
         # Register nodes
@@ -362,6 +437,21 @@ class AgentRunner:
                     db_session.rollback()
             finally:
                 db_session.close()
+            # Metrics and logs for unexpected error
+            try:
+                duration = max(0.0, time.monotonic() - start_time)
+                if AGENT_RUN_ERRORS is not None:
+                    AGENT_RUN_ERRORS.inc()
+                if AGENT_RUN_SECONDS is not None:
+                    AGENT_RUN_SECONDS.labels(status="failed").observe(duration)
+                try:
+                    logger.exception(
+                        f"Agent run error: run_id={run_id_str} duration_sec={duration:.3f} error={e}"
+                    )
+                except Exception:
+                    pass
+            except (ValueError, TypeError, RuntimeError):
+                pass
             await bus.publish(thread_id, "run.finished", {"run_id": run_id_str, "status": "failed", "error": str(e)})
             return run_id_str
         return run_id_str

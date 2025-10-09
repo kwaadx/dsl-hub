@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import flows, threads, pipelines, summaries, schemas, agent
+from .routers import flows, threads, pipelines, summaries, schemas, agent, messages
 from .middleware.idempotency import IdempotencyMiddleware
 from .middleware.limits import SizeLimitMiddleware
 from .middleware.metrics import MetricsMiddleware
@@ -52,6 +52,7 @@ app.include_router(threads.router)
 app.include_router(pipelines.router)
 app.include_router(summaries.router)
 app.include_router(schemas.router)
+app.include_router(messages.router)
 app.include_router(agent.router)
 app.include_router(upgrades.router)
 

@@ -1,4 +1,4 @@
-import asyncio, time
+import asyncio, time, json
 from typing import Dict, List, Any, Tuple
 from sse_starlette.sse import EventSourceResponse
 
@@ -106,7 +106,7 @@ bus = SSEBus()
 
 def _to_sse_message(item: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize internal bus item to SSE message payload.
-    Keeps runtime behavior identical while removing duplication.
+    Always JSON-encode the payload to ensure clients can JSON.parse(ev.data) reliably.
     """
     data = item["data"]
     ts = item["ts"]
@@ -114,7 +114,8 @@ def _to_sse_message(item: Dict[str, Any]) -> Dict[str, Any]:
         payload = {**data, "ts": ts}
     else:
         payload = {"value": data, "ts": ts}
-    return dict(event=item["type"], id=str(item["cursor"]), data=payload)
+    # Ensure JSON string for SSE data field
+    return dict(event=item["type"], id=str(item["cursor"]), data=json.dumps(payload, ensure_ascii=False))
 
 async def sse_response(thread_id: str, ping_interval: int = 15, last_event_id: str | None = None):
     # subscribe first

@@ -18,7 +18,7 @@ export function useSSE(url: string, opts: UseSSEOptions = {}) {
   const lastId = ref<string | null>(null)
   const error = shallowRef<Error | null>(null)
 
-  const controller = new AbortController()
+  let controller: AbortController | null = null
   let heartbeatTimer: number | null = null
   let reconnecting = false
   let retryDelay = opts.retryBaseMs ?? 500
@@ -44,14 +44,32 @@ export function useSSE(url: string, opts: UseSSEOptions = {}) {
     reconnecting = false
     retryDelay = opts.retryBaseMs ?? 500
 
+    controller = new AbortController()
+
+    const reconnect = async () => {
+      reconnecting = true
+      stop(true)
+      await new Promise(r => setTimeout(r, retryDelay))
+      retryDelay = Math.min(retryDelay * 2, opts.retryMaxMs ?? 10_000)
+      reconnecting = false
+      start()
+    }
+
     const run = async () => {
       await fetchEventSource(url, {
         method: opts.method ?? 'GET',
         body: opts.body ?? undefined,
         headers,
-        signal: controller.signal,
+        signal: controller!.signal,
         async onopen(res) {
-          if (res.ok && res.headers.get('content-type')?.includes('text/event-stream')) {
+          // 204 No Content -> caller's Last-Event-ID is too old, reconnect without it
+          if (res.status === 204) {
+            delete headers['Last-Event-ID']
+            lastId.value = null
+            throw new Error('SSE replay window expired (204)')
+          }
+          const ctype = res.headers.get('content-type') || ''
+          if (res.ok && ctype.includes('text/event-stream')) {
             resetHeartbeat()
             return
           }
@@ -64,9 +82,7 @@ export function useSSE(url: string, opts: UseSSEOptions = {}) {
           resetHeartbeat()
         },
         onerror(err) {
-          error.value = err
-          as
-          Error
+          error.value = err as Error
           if (!reconnecting) reconnect()
         },
         onclose() {
@@ -76,32 +92,19 @@ export function useSSE(url: string, opts: UseSSEOptions = {}) {
       })
     }
 
-    const reconnect = async () => {
-      reconnecting = true
-      stop(false)
-      await new Promise(r => setTimeout(r, retryDelay))
-      retryDelay = Math.min(retryDelay * 2, opts.retryMaxMs ?? 10_000)
-      reconnecting = false
-      start()
-    }
-
     run().catch((e) => {
-      error.value = e
-      as
-      Error
+      error.value = e as Error
       if (!reconnecting) {
-        const _ = (async () => {
-          await new Promise(r => setTimeout(r, retryDelay))
-          retryDelay = Math.min(retryDelay * 2, opts.retryMaxMs ?? 10_000)
-          start()
-        })()
+        // unify reconnection path
+        const _ = reconnect()
       }
     })
   }
 
   function stop(resetState = true) {
-    if (!isActive.value) return
-    controller.abort()
+    if (!isActive.value && !controller) return
+    if (controller) controller.abort()
+    controller = null
     if (heartbeatTimer) clearTimeout(heartbeatTimer)
     if (resetState) {
       isActive.value = false

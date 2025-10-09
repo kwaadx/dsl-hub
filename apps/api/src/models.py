@@ -24,12 +24,12 @@ class Flow(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    threads = relationship("Thread", back_populates="flow", cascade="all, delete-orphan")
-    pipelines = relationship("Pipeline", back_populates="flow")
-    summaries = relationship("FlowSummary", back_populates="flow")
+    threads = relationship("Thread", back_populates="flow", cascade="all, delete-orphan", passive_deletes=True)
+    pipelines = relationship("Pipeline", back_populates="flow", passive_deletes=True)
+    summaries = relationship("FlowSummary", back_populates="flow", passive_deletes=True)
     logs = relationship("AgentLog", back_populates="flow")
-    generation_runs = relationship("GenerationRun", back_populates="flow")
-    summary_runs = relationship("SummaryRun", back_populates="flow")
+    generation_runs = relationship("GenerationRun", back_populates="flow", passive_deletes=True)
+    summary_runs = relationship("SummaryRun", back_populates="flow", passive_deletes=True)
 
 
 class Thread(Base):

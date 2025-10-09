@@ -51,7 +51,7 @@ class SummaryService:
             raise AppError(status=404, code="THREAD_NOT_FOUND", message="Thread not found")
         # Collect messages for summarization (MVP: whole thread)
         messages_payload = self._collect_messages_payload(thread_id)
-        # Call LLM to summarize (mock by default)
+        # Call LLM to summarize
         data = await self.llm.summarize({
             "thread_id": thread_id,
             "flow_id": str(t.flow_id),

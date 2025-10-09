@@ -29,7 +29,7 @@ class ThreadRepo:
         ).scalar_one_or_none()
 
         snapshot_id = str(uuid.uuid4())
-        # Important: insert ContextSnapshot first so DB trigger on thread can validate flow match
+        # Create ContextSnapshot first and flush to ensure it exists before inserting Thread
         snap = ContextSnapshot(
             id=snapshot_id,
             flow_id=flow_id,
@@ -39,10 +39,14 @@ class ThreadRepo:
             pipeline_id=pub.id if pub else None,
             notes={},
         )
+        self.db.add(snap)
+        self.db.flush()  # guarantee snapshot row is persisted for trigger validation
+
+        # Now create the thread that references the snapshot
         t = Thread(id=thread_id, flow_id=flow_id, context_snapshot_id=snapshot_id)
-        # Add both; SQLAlchemy will insert snapshot first due to FK from thread -> snapshot and no reverse FK set
-        self.db.add_all([snap, t])
+        self.db.add(t)
         self.db.flush()
+
         # Now that thread exists, backfill origin_thread_id for the snapshot
         snap.origin_thread_id = thread_id
         self.db.flush()

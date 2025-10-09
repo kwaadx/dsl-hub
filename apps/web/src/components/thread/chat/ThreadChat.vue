@@ -1,22 +1,17 @@
 <script setup lang="ts">
-import {ref, nextTick, computed, onMounted} from 'vue'
-import {useScroll, useStorage, useEventListener} from '@vueuse/core'
+import {ref, nextTick, onMounted} from 'vue'
+import {useScroll, useEventListener} from '@vueuse/core'
 import MessageRenderer from '@/components/thread/chat/MessageRenderer.vue'
 import type {ChatMessage, UserMessage, AgentEvent} from '@/types/chat'
-import {useAgentFlow} from '@/composables/useAgentFlow'
+import {useThreadAgent} from '@/composables/useThreadAgent'
 import {useI18n} from '@/composables/useI18n'
 
 const {t} = useI18n()
 
-const props = defineProps<{ flowId?: string; threadId?: string }>()
+const props = defineProps<{ flowId?: string; threadId?: string; token?: string }>()
 
-const storageKey = computed(() => `chatflow:${props.flowId ?? 'demo'}:${props.threadId ?? 'default'}`)
-const history = useStorage<ChatMessage[]>(storageKey.value, [], localStorage, {
-  serializer: {
-    read: (v) => (v ? JSON.parse(v) : []),
-    write: (v) => JSON.stringify(v),
-  },
-})
+const history = ref<ChatMessage[]>([])
+const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || ''
 
 const container = ref<HTMLElement | null>(null)
 const {y} = useScroll(container, {behavior: 'smooth'})
@@ -30,9 +25,17 @@ function scrollToBottom() {
 }
 
 const input = ref('')
-const {sendToAgent, isBusy, mockBoot} = useAgentFlow({
+const {sendToAgent, isBusy, mockBoot} = useThreadAgent({
+  flowId: props.flowId,
+  threadId: props.threadId ?? '',
+  token: props.token,
   onAppend(msg) {
-    history.value.push(msg)
+    const idx = history.value.findIndex(m => m.id === msg.id)
+    if (idx >= 0) {
+      history.value[idx] = msg
+    } else {
+      history.value.push(msg)
+    }
     scrollToBottom()
   },
 })
@@ -40,16 +43,16 @@ const {sendToAgent, isBusy, mockBoot} = useAgentFlow({
 function send() {
   const text = input.value.trim()
   if (!text) return
+  input.value = ''
+  scrollToBottom()
   const userMsg: UserMessage = {
     id: crypto.randomUUID(),
     role: 'user',
     type: 'text',
-    content: {text},
+    content: { text },
     ts: Date.now(),
   }
-  history.value.push(userMsg)
-  input.value = ''
-  scrollToBottom()
+  // Do not push optimistically; rely on SSE message.created
   sendToAgent(userMsg)
 }
 
@@ -62,7 +65,30 @@ if (history.value.length === 0) {
   nextTick(scrollToBottom)
 }
 
-onMounted(() => {
+onMounted(async () => {
+  if (props.threadId) {
+    try {
+      const url = `${apiBase}/threads/${props.threadId}/messages`
+      const headers = props.token ? { Authorization: `Bearer ${props.token}` } : {}
+      const res = await fetch(url, { headers })
+      const items = await res.json()
+      const mapped: ChatMessage[] = Array.isArray(items)
+        ? items.map((m: any) => {
+            const id = m.id
+            const role = m.role === 'user' ? 'user' : 'agent'
+            const ts = Date.parse(m.created_at || '') || Date.now()
+            if (m.format === 'json') {
+              return { id, role, type: 'code', content: { language: 'json', code: JSON.stringify(m.content ?? {}, null, 2) }, ts } as ChatMessage
+            }
+            const text = m?.content?.text ?? (typeof m.content === 'string' ? m.content : '')
+            return { id, role, type: 'text', content: { text }, ts } as ChatMessage
+          })
+        : []
+      history.value = mapped
+    } catch (e) {
+      // ignore fetch errors for now
+    }
+  }
   scrollToBottom()
 })
 </script>

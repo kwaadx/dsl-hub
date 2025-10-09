@@ -55,6 +55,12 @@ class Settings(BaseSettings):
     SSE_BUFFER_MAXLEN: int = int(os.getenv("API_SSE_BUFFER_MAXLEN", "500"))
     APP_VERSION: str = os.getenv("APP_VERSION", "0.1.0")
     MAX_JSON_SIZE: int = int(os.getenv("API_MAX_JSON_SIZE", "1048576"))
+    # Feature flags
+    EMIT_LEGACY_AGENT_MSG: bool = _get_bool("API_EMIT_LEGACY_AGENT_MSG", True)
+
+    # Chat limits (Stage 12)
+    MESSAGES_RATE_PER_MINUTE: int = int(os.getenv("API_MESSAGES_RATE_PER_MINUTE", "30"))
+    MESSAGE_TEXT_MAX_LEN: int = int(os.getenv("API_MESSAGE_TEXT_MAX_LEN", "4000"))
 
     # Idempotency / Security
     IDEMPOTENCY_TTL_SEC: int = int(os.getenv("API_IDEMPOTENCY_TTL_SEC", "300"))
@@ -66,7 +72,6 @@ class Settings(BaseSettings):
     INIT_SCHEMA_PATH: Optional[str] = os.getenv("API_INIT_SCHEMA_PATH") or None
 
     # LLM
-    LLM_PROVIDER: str = os.getenv("API_LLM_PROVIDER", "mock")
     LLM_TIMEOUT: int = int(os.getenv("API_LLM_TIMEOUT", "30"))
     LLM_RETRIES: int = int(os.getenv("API_LLM_RETRIES", "3"))
     OPENAI_API_KEY: Optional[str] = os.getenv("API_OPENAI_API_KEY") or None

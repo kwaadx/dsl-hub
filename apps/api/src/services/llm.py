@@ -1,6 +1,6 @@
 """
-LLM abstraction with pluggable providers.
-Default: mock generator. If settings.LLM_PROVIDER == "openai", uses OpenAI Chat Completions.
+OpenAI-only LLM client.
+Removes mock/provider switching. Requires API_OPENAI_API_KEY to be set.
 """
 from __future__ import annotations
 
@@ -67,22 +67,18 @@ def _ensure_json(text: str) -> Dict[str, Any]:
 
 class LLMClient:
     def __init__(self):
-        self.provider = (settings.__dict__.get("LLM_PROVIDER") or "mock").lower()
+        # OpenAI-only implementation
+        self.provider = "openai"
         self.timeout = int(getattr(settings, "LLM_TIMEOUT", 30))
         self._client: Optional[Any] = None
-        if self.provider == "openai":
-            if AsyncOpenAI is None:
-                # Library missing; degrade to mock
-                self.provider = "mock"
-            else:
-                api_key = getattr(settings, "OPENAI_API_KEY", None)
-                base_url = getattr(settings, "OPENAI_BASE_URL", None) or None
-                if not api_key:
-                    # No key configured; degrade to mock
-                    self.provider = "mock"
-                else:
-                    self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
-        # model name (used by openai provider)
+        if AsyncOpenAI is None:
+            raise ImportError("openai package is required. Install with `pip install openai`.")
+        api_key = getattr(settings, "OPENAI_API_KEY", None)
+        base_url = getattr(settings, "OPENAI_BASE_URL", None) or None
+        if not api_key:
+            raise RuntimeError("API_OPENAI_API_KEY is not set. Configure it in environment.")
+        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        # model name
         self.model = getattr(settings, "OPENAI_MODEL", "gpt-4o-mini")
 
     async def _chat_json_retry(
@@ -141,13 +137,8 @@ class LLMClient:
 
     async def generate_pipeline(self, context: Dict[str, Any], user_message: Dict[str, Any]) -> Dict[str, Any]:
         method = "generate_pipeline"
-        provider = self.provider
-        if provider != "openai":
-            # mock path
-            out = _default_pipeline()
-            _record_metrics(method, provider, "ok", None)
-            return out
-        # OpenAI provider with retry/backoff (refactored)
+        provider = "openai"
+        # OpenAI provider with retry/backoff
         assert self._client is not None
         system = (
             "You are an expert DSL pipeline author. Always respond with pure JSON (no extra text).\n"
@@ -171,17 +162,7 @@ class LLMClient:
 
     async def self_check(self, draft: Dict[str, Any]) -> Dict[str, Any]:
         method = "self_check"
-        provider = self.provider
-        if provider != "openai":
-            out = {
-                "notes": [
-                    "Verify `path` exists.",
-                    "Validate that `table` is present and accessible.",
-                ],
-                "risks": [],
-            }
-            _record_metrics(method, provider, "ok", None)
-            return out
+        provider = "openai"
         assert self._client is not None
         system = (
             "You are a code reviewer for DSL pipelines.\n"
@@ -209,21 +190,7 @@ class LLMClient:
         Returns a JSON with keys: summary (string), bullets (array of strings).
         """
         method = "summarize"
-        provider = self.provider
-        if provider != "openai":
-            msgs = payload.get("messages", []) or []
-            count = len(msgs)
-            last = msgs[-1]["content"] if msgs else {}
-            out = dict(
-                summary=f"Brief discussion summary: {count} messages.",
-                bullets=[
-                    "Overview of user goals",
-                    "Key steps discussed",
-                ],
-                last_hint=last,
-            )
-            _record_metrics(method, provider, "ok", None)
-            return out
+        provider = "openai"
         assert self._client is not None
         system = (
             "You are a helpful assistant that summarizes chat threads for engineers.\n"

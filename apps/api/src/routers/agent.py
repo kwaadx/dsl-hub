@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import Response
 from typing import Union
 from ..database import SessionLocal
-from ..dto import AgentRunIn, AgentRunAck, SuggestionOut
+from ..dto import AgentRunIn, AgentRunAck, SuggestionOut, UIEventIn, UIEventAck
 from ..sse import sse_response, bus
 from ..agent.graph import AgentRunner
 from ..config import settings
@@ -100,3 +100,30 @@ async def _infer_flow(thread_id: str) -> str:
         return str(t.flow_id)
     finally:
         db.close()
+
+@router.post("/{thread_id}/agent/event", response_model=UIEventAck, status_code=202)
+async def agent_event(thread_id: str, payload: UIEventIn) -> UIEventAck:
+    """Accept UI events from the UI and acknowledge them via SSE.
+    This does not advance the FSM for now; it simply reflects user actions in the stream.
+    """
+    kind = (payload.kind or "").lower()
+    msg: str
+    if kind == "action.click":
+        aid = payload.actionId or ""
+        msg = f'Action "{aid}" accepted' if aid else "Action accepted"
+    elif kind == "choice.submit":
+        value = None
+        try:
+            if isinstance(payload.payload, dict):
+                value = payload.payload.get("value")
+        except Exception:
+            value = None
+        msg = f'Choice "{value}" submitted' if value is not None else "Choice submitted"
+    elif kind == "card.open":
+        url = payload.url or ""
+        msg = f"Open card {url}" if url else "Open card"
+    else:
+        msg = f"Event {payload.kind} received"
+
+    await bus.publish(thread_id, "ui.ack", {"kind": payload.kind, "msg": msg, "event": payload.dict()})
+    return UIEventAck(ok=True)

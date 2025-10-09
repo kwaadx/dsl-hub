@@ -78,3 +78,14 @@ class SchemaChannelOut(BaseModel):
 
     class Config:
         populate_by_name = True
+
+# --- UI Events DTOs ---
+class UIEventIn(BaseModel):
+    kind: str
+    msgId: Optional[str] = None
+    actionId: Optional[str] = None
+    payload: Optional[Any] = None
+    url: Optional[str] = None
+
+class UIEventAck(BaseModel):
+    ok: bool = True
