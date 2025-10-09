@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
-from apps.api.src.middleware.idempotency import IdempotencyMiddleware
+from ..middleware.idempotency import IdempotencyMiddleware
 
 
 def _make_app():

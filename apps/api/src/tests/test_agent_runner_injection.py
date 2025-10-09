@@ -1,8 +1,8 @@
 import asyncio
 from types import SimpleNamespace
 
-import apps.api.src.agent.graph as agent_graph
-from apps.api.src.agent.graph import AgentRunner
+from ..agent import graph as agent_graph
+from ..agent.graph import AgentRunner
 
 
 class _FakeBus:

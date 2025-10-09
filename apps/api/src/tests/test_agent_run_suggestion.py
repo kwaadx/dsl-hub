@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
 
-from apps.api.src.main import app
-import apps.api.src.routers.agent as agent_router
-from apps.api.src.agent.graph import AgentRunner
+from ..main import app
+from ..routers import agent as agent_router
+from ..agent.graph import AgentRunner
 
 
 def test_agent_run_returns_suggestion(monkeypatch):

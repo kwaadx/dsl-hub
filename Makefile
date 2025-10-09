@@ -62,6 +62,18 @@ help: ## Show available targets
 # ───────────────────────────────────────────────
 # 🐳 Service Management
 # ───────────────────────────────────────────────
+
+# ---- Tests (Docker) ----
+# Run tests inside the api service container so env and deps match
+# Usage:
+#   make test            # run all tests in /tests
+#   make test ARGS='-k sse'  # pass extra pytest args
+TEST_ARGS ?=
+
+test: ## Run pytest inside the api container (uses ./tests)
+	$(call INFO,Running tests in Docker ...)
+	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) run --rm api pytest -q /app/api/src/tests $(TEST_ARGS)
+	$(call SUCCESS,Tests finished.)
 start-services: ## Start all services in background
 	$(call INFO,Starting services...)
 	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) up -d
@@ -235,9 +247,19 @@ db-fresh: ## Drop Postgres volume and start db fresh
 	@docker volume rm -f db_data 2>/dev/null || true
 	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) up -d db
 	$(call SUCCESS,Database started with fresh volume.)
+	$(MAKE) guidelines-sync
 
 db-shell: ## Open psql shell in db container
 	@docker exec -it dsl-hub-db psql -U $$DB_USER -d $$DB_DB || docker exec -it dsl-hub-db psql -U postgres -d postgres
+
+# ───────────────────────────────────────────────
+# 📄 Docs helpers
+# ───────────────────────────────────────────────
+
+guidelines-sync: ## Regenerate .junie/guidelines.md from current Alembic migration
+	$(call INFO,Updating guidelines from Alembic schema ...)
+	@python3 apps/api/alembic/update_guidelines.py || true
+	$(call SUCCESS,Guidelines updated.)
 
 # ───────────────────────────────────────────────
 # ✅ PHONY
@@ -248,4 +270,4 @@ db-shell: ## Open psql shell in db container
 	enter-web enter-api enter-% \
 	clean-docker clean-service clean-container clean-network clean-volumes prune-dangling clear-docker-logs \
 	build-no-cache reset prune-build-cache \
-	db-fresh db-shell
+	db-fresh db-shell guidelines-sync

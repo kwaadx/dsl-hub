@@ -1,8 +1,8 @@
 import pytest
 from types import SimpleNamespace
 
-from apps.api.src.routers.upgrades import create_upgrade_plan, UpgradePlanCreate
-from apps.api.src.models import SchemaDef
+from ..routers.upgrades import create_upgrade_plan, UpgradePlanCreate
+from ..models import SchemaDef
 
 
 class DummyDB:

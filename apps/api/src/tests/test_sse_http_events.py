@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
 import asyncio
 
-from apps.api.src.main import app
-from apps.api.src.sse import bus
+from ..main import app
+from ..sse import bus
 
 
 def test_sse_events_returns_204_when_replay_not_possible():

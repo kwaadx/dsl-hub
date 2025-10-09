@@ -2,8 +2,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.testclient import TestClient
 
-from apps.api.src.middleware.idempotency import IdempotencyMiddleware
-from apps.api.src.middleware.error import AppError, handle_app_error
+from ..middleware.idempotency import IdempotencyMiddleware
+from ..middleware.error import AppError, handle_app_error
 
 
 def build_app():

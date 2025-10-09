@@ -1,7 +1,7 @@
 import asyncio
 import pytest
 
-from apps.api.src.sse import bus
+from ..sse import bus
 
 
 @pytest.mark.asyncio

@@ -31,6 +31,34 @@ The project is structured as a monorepo with the following components:
 
 ## Getting Started
 
+## Running Tests
+
+There are ready-to-use tests in the repository root under ./tests. Run them inside Docker so the environment and dependencies match the backend service.
+
+Quick start (Docker):
+- Build/start stack once (optional for tests):
+  docker compose up -d --build
+- Run all tests inside the api container:
+  make test
+  # or without Makefile
+  docker compose run --rm api pytest -q /app/tests
+- Pass extra pytest args:
+  make test TEST_ARGS='-k sse -vv'
+
+Notes:
+- Tests do NOT require a running database; they patch the DB session when needed and use the in-memory SSE bus. A running db service is not required for these tests.
+- If API_AUTH_TOKEN is set in your env, tests use TestClient without auth; ensure API_AUTH_TOKEN is not set or unset it for the test session.
+
+Local (without Docker):
+- Create a virtualenv and install backend deps:
+  python -m venv .venv && source .venv/bin/activate
+  pip install -r apps/api/requirements.txt
+- Run tests from the repo root:
+  pytest -q tests
+
+Troubleshooting:
+- Module import errors like 'apps.api.src...': ensure you run pytest from the repository root so that the apps/ directory is on PYTHONPATH. Inside Docker, the Makefile command already sets this up by running in /app.
+
 ### Using Docker (Recommended)
 
 1. Clone the repository:

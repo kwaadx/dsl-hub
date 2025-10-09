@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from apps.api.src.middleware.error import AppError, handle_app_error, handle_http_error, handle_generic_error
+from ..middleware.error import AppError, handle_app_error, handle_http_error, handle_generic_error
 
 
 def _make_app():

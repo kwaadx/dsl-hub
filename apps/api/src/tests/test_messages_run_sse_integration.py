@@ -1,9 +1,9 @@
 import asyncio
 from fastapi.testclient import TestClient
 
-from apps.api.src.main import app
-from apps.api.src.sse import bus
-import apps.api.src.routers.messages as messages_router
+from ..main import app
+from ..sse import bus
+from ..routers import messages as messages_router
 
 
 class _FakeRunner:

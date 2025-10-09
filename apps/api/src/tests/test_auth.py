@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
-from apps.api.src.middleware.auth import AuthMiddleware
-from apps.api.src.config import settings
+from ..middleware.auth import AuthMiddleware
+from ..config import settings
 
 
 def _make_app():

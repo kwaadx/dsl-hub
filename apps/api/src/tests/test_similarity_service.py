@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
-from apps.api.src.services.similarity_service import SimilarityService
+from ..services.similarity_service import SimilarityService
+from ..services import similarity_service as sim_mod
 
 
 class _FakePipeline:
@@ -45,7 +46,7 @@ def test_similarity_exact_match_monkeypatched(monkeypatch):
     fake_session_factory = _FakeSessionLocal(p)
     # Monkeypatch the SessionLocal used inside SimilarityService
     monkeypatch.setattr(
-        "apps.api.src.services.similarity_service.SessionLocal", fake_session_factory, raising=False
+        sim_mod, "SessionLocal", fake_session_factory, raising=False
     )
     svc = SimilarityService(threshold=0.99)
     candidate_json = {"name": "x", "stages": []}

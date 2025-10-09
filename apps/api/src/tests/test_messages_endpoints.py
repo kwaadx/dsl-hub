@@ -2,8 +2,8 @@ from fastapi.testclient import TestClient
 from typing import Any, Dict
 from datetime import datetime, timezone
 
-from apps.api.src.main import app
-import apps.api.src.routers.messages as messages_router
+from ..main import app
+from ..routers import messages as messages_router
 
 
 class _StubThread:

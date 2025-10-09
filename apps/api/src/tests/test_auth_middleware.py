@@ -2,9 +2,9 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette.testclient import TestClient
 
-from apps.api.src.middleware.auth import AuthMiddleware
-from apps.api.src.middleware.error import AppError, handle_app_error
-from apps.api.src.config import settings
+from ..middleware.auth import AuthMiddleware
+from ..middleware.error import AppError, handle_app_error
+from ..config import settings
 
 
 def build_app():

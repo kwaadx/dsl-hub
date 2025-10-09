@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from apps.api.src.services.validation_service import ValidationService
+from ..services.validation_service import ValidationService
 
 
 class DummyDB:

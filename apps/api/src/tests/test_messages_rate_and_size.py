@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
 
-from apps.api.src.main import app
-import apps.api.src.routers.messages as messages_router
-from apps.api.src.config import settings
+from ..main import app
+from ..routers import messages as messages_router
+from ..config import settings
 
 
 class _StubThread:
