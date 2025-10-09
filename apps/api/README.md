@@ -1,3 +1,7 @@
+docker run --rm -v "$PWD":/app -w /app python:3.13-slim \
+bash -lc "python -m pip install --upgrade pip && pip install pip-tools && pip-compile -o requirements.txt requirements.in"
+
+
 # DSL Hub Backend (FastAPI + LangGraph + SSE)
 
 This repository is a production-ready MVP skeleton that implements:
