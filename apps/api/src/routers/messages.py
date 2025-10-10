@@ -6,38 +6,17 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import select, and_, or_, asc
 
-from ..database import SessionLocal
+from ..deps import db_session  # legacy DI
+from ..deps import uc_create_message, uc_list_messages, uc_start_agent_run
+from sqlalchemy.orm import Session
 from ..models import Message, Thread
 from ..sse import bus
 from ..dto import MessageIn
-from ..services.similarity_service import SimilarityService
-from ..services.llm import LLMClient
-from ..agent.graph import AgentRunner
+from ..application.agent import StartAgentRun
 from ..metrics import MESSAGES_CREATED
 from ..config import settings
 
 router = APIRouter(prefix="/threads", tags=["messages"])  # keep same namespace under /threads
-
-
-# ---- Agent dependencies (copied from agent router) ----
-
-def get_similarity_service() -> SimilarityService:
-    return SimilarityService()
-
-
-def get_llm_client() -> LLMClient:
-    return LLMClient()
-
-
-def get_agent_runner(
-    similarity: SimilarityService = Depends(get_similarity_service),
-    llm: LLMClient = Depends(get_llm_client),
-) -> AgentRunner:
-    return AgentRunner(
-        session_factory=SessionLocal,
-        similarity_service=similarity,
-        llm_client=llm,
-    )
 
 
 # ---- Helpers ----
@@ -88,14 +67,14 @@ def _to_msg_out(m: Message) -> Dict[str, Any]:
 
 
 async def _infer_flow(thread_id: str) -> str:
-    db = SessionLocal()
+    db: Session = Depends(db_session)  # injected
     try:
         t = db.get(Thread, thread_id)
         if not t:
             raise HTTPException(status_code=404, detail="Thread not found")
         return str(t.flow_id)
     finally:
-        db.close()
+        pass
 
 
 # ---- Routes ----
@@ -107,7 +86,7 @@ async def list_messages(
     before: Optional[str] = Query(default=None, description="Cursor: message id to fetch items strictly older than"),
     response: Response = None,
 ) -> List[Dict[str, Any]]:
-    db = SessionLocal()
+    db: Session = Depends(db_session)  # injected
     try:
         # Ensure thread exists
         t = db.get(Thread, thread_id)
@@ -150,7 +129,7 @@ async def list_messages(
                 response.headers["X-Next-Cursor"] = str(first.id)
         return [_to_msg_out(m) for m in rows]
     finally:
-        db.close()
+        pass
 
 
 @router.post("/{thread_id}/messages", status_code=201)
@@ -159,8 +138,8 @@ async def create_message(
     payload: MessageIn,
     request: Request,
     run: Optional[int] = Query(default=0, description="When 1, start agent FSM after creating the message"),
-    runner: AgentRunner = Depends(get_agent_runner),
-) -> Dict[str, Any]:
+    start_run: StartAgentRun = Depends(uc_start_agent_run),
+, create=Depends(uc_create_message)) -> Dict[str, Any]:
     if (payload.role or "").lower() != "user":
         raise HTTPException(status_code=400, detail="Only role=user is supported for POST /messages")
 
@@ -186,7 +165,7 @@ async def create_message(
         if text_value is not None and len(text_value) > max_len:
             raise HTTPException(status_code=413, detail=f"Message content too large (max {max_len} chars)")
 
-    db = SessionLocal()
+    db: Session = Depends(db_session)  # injected
     try:
         # Validate thread
         t = db.get(Thread, thread_id)
@@ -243,9 +222,9 @@ async def create_message(
             )
             meta["run"] = {"run_id": run_id, "status": "queued"}
 
-        out = _to_msg_out(m)
+        out = create(thread_id=thread_id, role=m.role, content=m.content, fmt=m.format, parent_id=m.parent_id)
         if meta:
             out = {**out, "meta": meta}
         return out
     finally:
-        db.close()
+        pass

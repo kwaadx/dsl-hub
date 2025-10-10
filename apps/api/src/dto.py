@@ -27,9 +27,9 @@ class ThreadOut(BaseModel):
     closed_at: Optional[str] = None
 
 class MessageIn(BaseModel):
-    role: str
+    role: str = Field(pattern=r"^(user|assistant|system|tool)$")
     content: Any
-    format: str = "text"
+    format: str = Field(default="text", pattern=r"^(text|markdown|json|buttons|card)$")
     parent_id: Optional[str] = None
     tool_name: Optional[str] = None
     tool_result: Optional[Any] = None

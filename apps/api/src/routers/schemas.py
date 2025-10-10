@@ -3,14 +3,15 @@ from fastapi import APIRouter, Depends, Body, Path, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from ..database import get_db
+from ..deps import db_session
+from sqlalchemy.orm import Session
 from ..models import SchemaChannel, SchemaDef
 from ..dto import SchemaChannelOut, SchemaDefBrief
 
 router = APIRouter(prefix="/schema", tags=["schema"]) 
 
 @router.get("/channels", response_model=List[SchemaChannelOut])
-def list_channels(db: Session = Depends(get_db)) -> List[SchemaChannelOut]:
+def list_channels(db: Session = Depends(db_session)) -> List[SchemaChannelOut]:
     rows = db.execute(select(SchemaChannel)).scalars().all()
     out: List[SchemaChannelOut] = []
     for r in rows:
@@ -27,7 +28,7 @@ class ActivateChannelIn(BaseModel):
     schema_def_id: str
 
 @router.post("/channels/{name}", response_model=SchemaChannelOut)
-def activate_channel(name: str = Path(...), body: ActivateChannelIn = Body(...), db: Session = Depends(get_db)) -> SchemaChannelOut:
+def activate_channel(name: str = Path(...), body: ActivateChannelIn = Body(...), db: Session = Depends(db_session)) -> SchemaChannelOut:
     # Validate target schema_def exists before changing channel
     sd = db.get(SchemaDef, body.schema_def_id)
     if not sd:

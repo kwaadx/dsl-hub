@@ -17,9 +17,10 @@ async def is_database_online() -> bool:
 
         def _check_sync() -> bool:
             # Local import to avoid circular dependencies at import time
-            from ..database import SessionLocal
+            from ..deps import db_session
+from sqlalchemy.orm import Session
 
-            db = SessionLocal()
+            db: Session = Depends(db_session)  # injected
             try:
                 db.execute(text("SELECT 1"))
                 return True

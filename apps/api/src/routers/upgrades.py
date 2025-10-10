@@ -3,7 +3,8 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 
-from ..database import get_db
+from ..deps import db_session
+from sqlalchemy.orm import Session
 from ..models import SchemaUpgradePlan, PipelineUpgradeRun, Pipeline, SchemaDef
 
 router = APIRouter(tags=["upgrades"])
@@ -22,7 +23,7 @@ class UpgradePlanOut(BaseModel):
     strategy: str
 
 @router.post("/schema/upgrade-plan", response_model=UpgradePlanOut, status_code=201)
-def create_upgrade_plan(body: UpgradePlanCreate = Body(...), db: Session = Depends(get_db)) -> UpgradePlanOut:
+def create_upgrade_plan(body: UpgradePlanCreate = Body(...), db: Session = Depends(db_session)) -> UpgradePlanOut:
     from_def = db.get(SchemaDef, body.from_schema_def_id)
     to_def = db.get(SchemaDef, body.to_schema_def_id)
     if not from_def or not to_def:
@@ -62,7 +63,7 @@ class PipelineUpgradeRunOut(BaseModel):
     upgrade_plan_id: Optional[str] = None
 
 @router.post("/pipelines/{pipeline_id}/upgrade", response_model=PipelineUpgradeRunOut, status_code=202)
-def start_pipeline_upgrade(pipeline_id: str = Path(...), body: UpgradeStart = Body(...), db: Session = Depends(get_db)) -> PipelineUpgradeRunOut:
+def start_pipeline_upgrade(pipeline_id: str = Path(...), body: UpgradeStart = Body(...), db: Session = Depends(db_session)) -> PipelineUpgradeRunOut:
     p = db.get(Pipeline, pipeline_id)
     if not p:
         raise HTTPException(status_code=404, detail="Pipeline not found")
@@ -88,7 +89,7 @@ def start_pipeline_upgrade(pipeline_id: str = Path(...), body: UpgradeStart = Bo
     )
 
 @router.get("/pipeline-upgrade-runs")
-def list_pipeline_upgrade_runs(pipeline_id: Optional[str] = None, db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
+def list_pipeline_upgrade_runs(pipeline_id: Optional[str] = None, db: Session = Depends(db_session)) -> List[Dict[str, Any]]:
     q = db.query(PipelineUpgradeRun)
     if pipeline_id:
         q = q.filter(PipelineUpgradeRun.pipeline_id == pipeline_id)

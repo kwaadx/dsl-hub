@@ -1,3 +1,9 @@
+from __future__ import annotations
+
+import logging
+
+logger = logging.getLogger(__name__)
+
 from jsonschema import Draft7Validator
 from typing import Any, Dict, List
 from sqlalchemy.orm import Session
@@ -7,6 +13,14 @@ from ..config import settings
 import re
 
 SEV_ERROR = {"required", "type", "enum"}
+
+# cache of compiled validators
+_VALIDATOR_CACHE: dict[str, Draft7Validator] = {}
+
+def _validator_cache_key(channel: str, version: str | None, name: str | None) -> str:
+    v = version or ""
+    n = name or ""
+    return f"{channel}:{v}:{n}"
 
 class ValidationService:
     def __init__(self, db: Session):

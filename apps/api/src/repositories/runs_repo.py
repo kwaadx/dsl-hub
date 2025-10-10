@@ -1,3 +1,9 @@
+from __future__ import annotations
+
+import logging
+
+logger = logging.getLogger(__name__)
+
 from sqlalchemy.orm import Session
 from ..models import GenerationRun, ValidationIssue
 from typing import Optional, List, Dict, Any

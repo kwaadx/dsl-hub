@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import Response
 from typing import Union
-from ..database import SessionLocal
+from ..deps import db_session
+from sqlalchemy.orm import Session
 from ..dto import AgentRunIn, AgentRunAck, SuggestionOut, UIEventIn, UIEventAck
 from ..sse import sse_response, bus
 from ..agent.graph import AgentRunner
@@ -92,14 +93,14 @@ async def agent_run(
 
 async def _infer_flow(thread_id: str) -> str:
     from ..models import Thread
-    db = SessionLocal()
+    db: Session = Depends(db_session)  # injected
     try:
         t = db.get(Thread, thread_id)
         if not t:
             raise HTTPException(status_code=404, detail="Thread not found")
         return str(t.flow_id)
     finally:
-        db.close()
+        pass
 
 @router.post("/{thread_id}/agent/event", response_model=UIEventAck, status_code=202)
 async def agent_event(thread_id: str, payload: UIEventIn) -> UIEventAck:

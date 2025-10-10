@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+
+import logging
+
+logger = logging.getLogger(__name__)
 from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import select

@@ -1,157 +1,102 @@
-import asyncio, time, json
-from typing import Dict, List, Any, Tuple
-from sse_starlette.sse import EventSourceResponse
+from __future__ import annotations
 
+import asyncio, time, json
+from typing import AsyncIterator, Dict, Any, Optional, List
 from collections import deque
-from .metrics import SSE_EVENTS, SSE_CONNECTIONS, SSE_SESSION_SECONDS
+from sse_starlette.sse import EventSourceResponse
+from fastapi import APIRouter
 from .config import settings
 
-class _StreamState:
-    __slots__ = ("cursor", "subscribers", "buffer")
-    def __init__(self):
-        self.cursor = 0
-        self.subscribers: List[asyncio.Queue] = []
-        try:
-            maxlen = int(getattr(settings, "SSE_BUFFER_MAXLEN", 500))
-        except (ValueError, TypeError):
-            maxlen = 500
-        self.buffer = deque(maxlen=maxlen)
 
-class SSEBus:
-    def __init__(self):
-        self._lock = asyncio.Lock()
-        self._streams: Dict[str, _StreamState] = {}
-
-    async def _get_state(self, key: str) -> _StreamState:
-        async with self._lock:
-            if key not in self._streams:
-                self._streams[key] = _StreamState()
-            return self._streams[key]
-
-    async def publish(self, key: str, event_type: str, data: Any) -> int:
-        state = await self._get_state(key)
-        state.cursor += 1
-        payload = {
-            "type": event_type,
-            "data": data,
-            "cursor": state.cursor,
-            "ts": int(time.time() * 1000),
-        }
-        # buffer for replay
-        state.buffer.append(payload)
-        # prune by TTL to avoid unbounded growth
-        try:
-            ttl_ms = int(getattr(settings, "SSE_BUFFER_TTL_SEC", 300)) * 1000
-        except (ValueError, TypeError):
-            ttl_ms = 300 * 1000
-        now_ms = int(time.time() * 1000)
-        while state.buffer and (now_ms - state.buffer[0]["ts"]) > ttl_ms:
+class ChannelBus:
+    def __init__(self, maxlen: int = None, ttl: int = None):
+        self.maxlen = maxlen or settings.API_SSE_BUFFER_MAXLEN
+        self.ttl = ttl or settings.API_SSE_BUFFER_TTL_SEC
+        self._buf: deque[Dict[str, Any]] = deque(maxlen=self.maxlen)
+        self._subs: List[asyncio.Queue] = []
+        self._chan_subs: dict[str, list[asyncio.Queue]] = {}
+    def publish(self, data: Any, *, channel: str | None = None) -> None:
+        item = {"data": data, "ts": time.time(), "channel": channel}
+        self._buf.append(item)
+        targets = list(self._subs)
+        if channel:
+            targets += self._chan_subs.get(channel, [])
+        for q in list(set(targets)):
             try:
-                state.buffer.popleft()
-            except IndexError:
-                break
-        for q in list(state.subscribers):
-            try:
-                q.put_nowait(payload)
+                q.put_nowait(item)
             except asyncio.QueueFull:
-                # Drop the oldest if full; minimal backpressure strategy
-                try:
-                    _ = q.get_nowait()
-                except asyncio.QueueEmpty:
-                    pass
-                q.put_nowait(payload)
-        try:
-            SSE_EVENTS.labels(event=event_type).inc()
-        except ValueError:
-            pass
-        return state.cursor
+                # drop slow subscriber
+                for lst in (self._subs, self._chan_subs.get(channel, [])):
+                    if q in lst:
+                        lst.remove(q)
+    def subscribe(self) -> asyncio.Queue:
+        q: asyncio.Queue = asyncio.Queue(maxsize=100)
+        self._subs.append(q)
+        return q
+    def subscribe_channel(self, channel: str) -> asyncio.Queue:
+        q: asyncio.Queue = asyncio.Queue(maxsize=100)
+        self._chan_subs.setdefault(channel, []).append(q)
+        return q
+    def replay(self, since_ts: float, channel: str | None = None) -> List[Dict[str, Any]]:
+        cutoff = time.time() - self.ttl
+        items = [m for m in self._buf if m["ts"] >= max(cutoff, since_ts)]
+        if channel:
+            items = [m for m in items if m.get("channel") == channel]
+        return items
 
-    async def subscribe(self, key: str) -> Tuple[asyncio.Queue, int]:
-        state = await self._get_state(key)
-        q: asyncio.Queue = asyncio.Queue(maxsize=256)
-        state.subscribers.append(q)
-        try:
-            SSE_CONNECTIONS.labels(action="open").inc()
-        except ValueError:
-            pass
-        return q, state.cursor
-
-    async def can_replay(self, key: str, since_cursor: int) -> bool:
-        state = await self._get_state(key)
-        if not state.buffer:
-            return False
-        earliest = state.buffer[0]["cursor"]
-        return since_cursor >= (earliest - 1)
-
-    async def replay(self, key: str, since_cursor: int) -> List[Dict[str, Any]] | None:
-        state = await self._get_state(key)
-        if not state.buffer:
-            return [] if since_cursor == 0 else None
-        earliest = state.buffer[0]["cursor"]
-        if since_cursor < (earliest - 1):
-            return None
-        return [e for e in list(state.buffer) if e["cursor"] > since_cursor]
-
-    async def unsubscribe(self, key: str, q: asyncio.Queue):
-        state = await self._get_state(key)
-        if q in state.subscribers:
-            state.subscribers.remove(q)
-        try:
-            SSE_CONNECTIONS.labels(action="close").inc()
-        except ValueError:
-            pass
-
-bus = SSEBus()
-
-
-def _to_sse_message(item: Dict[str, Any]) -> Dict[str, Any]:
-    """Normalize internal bus item to SSE message payload.
-    Always JSON-encode the payload to ensure clients can JSON.parse(ev.data) reliably.
-    """
-    data = item["data"]
-    ts = item["ts"]
-    if isinstance(data, dict):
-        payload = {**data, "ts": ts}
-    else:
-        payload = {"value": data, "ts": ts}
-    # Ensure JSON string for SSE data field
-    return dict(event=item["type"], id=str(item["cursor"]), data=json.dumps(payload, ensure_ascii=False))
-
-async def sse_response(thread_id: str, ping_interval: int = 15, last_event_id: str | None = None):
-    # subscribe first
-    q, _ = await bus.subscribe(thread_id)
-    # parse last_event_id for replay
-    since = None
-    if last_event_id:
-        try:
-            since = int(last_event_id)
-        except ValueError:
-            since = None
-
-    async def gen():
-        started = time.time()
-        try:
-            # initial replay if possible
-            if since is not None:
-                replay = await bus.replay(thread_id, since)
-                if replay:
-                    for item in replay:
-                        yield _to_sse_message(item)
-            # initial keep-alive
-            yield {"event": "ping", "data": ""}
-            while True:
-                try:
-                    item = await asyncio.wait_for(q.get(), timeout=ping_interval)
-                except asyncio.TimeoutError:
-                    yield {"event": "ping", "data": ""}
-                    continue
-                yield _to_sse_message(item)
-        finally:
+    def __init__(self, maxlen: int = None, ttl: int = None):
+        self.maxlen = maxlen or settings.API_SSE_BUFFER_MAXLEN
+        self.ttl = ttl or settings.API_SSE_BUFFER_TTL_SEC
+        self._buf: deque[Dict[str, Any]] = deque(maxlen=self.maxlen)
+        self._subs: List[asyncio.Queue] = []
+    def publish(self, data: Any) -> None:
+        item = {"data": data, "ts": time.time()}
+        self._buf.append(item)
+        for q in list(self._subs):
             try:
-                dur = max(0.0, time.time() - started)
-                SSE_SESSION_SECONDS.observe(dur)
+                q.put_nowait(item)
+            except asyncio.QueueFull:
+                self._subs.remove(q)
+    def subscribe(self) -> asyncio.Queue:
+        q: asyncio.Queue = asyncio.Queue(maxsize=100)
+        self._subs.append(q)
+        return q
+    def replay(self, since_ts: float) -> List[Dict[str, Any]]:
+        cutoff = time.time() - self.ttl
+        return [m for m in self._buf if m["ts"] >= max(cutoff, since_ts)]
+bus = ChannelBus()
+def _to_sse_message(item: Dict[str, Any]) -> Dict[str, Any]:
+    data = item["data"]; ts = item["ts"]
+    payload = data if isinstance(data, dict) else {"value": data}
+    payload["ts"] = ts
+    return {"event": "message", "data": json.dumps(payload), "id": str(ts)}
+router = APIRouter(prefix="/sse", tags=["sse"])
+@router.get("/stream")
+async def stream(last_event_id: Optional[str] = None):
+    q = bus.subscribe()
+    async def gen() -> AsyncIterator[dict]:
+        if last_event_id:
+            try:
+                since_ts = float(last_event_id)
+                for item in bus.replay(since_ts):
+                    yield _to_sse_message(item)
             except ValueError:
                 pass
-            await bus.unsubscribe(thread_id, q)
-
-    return EventSourceResponse(gen())
+        ping_interval = max(5, settings.API_SSE_PING_INTERVAL)
+        last_ping = time.time()
+        try:
+            while True:
+                try:
+                    item = await asyncio.wait_for(q.get(), timeout=1.0)
+                    yield _to_sse_message(item)
+                except asyncio.TimeoutError:
+                    now = time.time()
+                    if now - last_ping >= ping_interval:
+                        last_ping = now
+                        yield {"event": "ping", "data": "ping"}
+        finally:
+            try:
+                bus._subs.remove(q)
+            except ValueError:
+                pass
+    return EventSourceResponse(gen(), headers={"Cache-Control": "no-cache"})

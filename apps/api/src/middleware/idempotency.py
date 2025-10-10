@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+
+import logging
+
+logger = logging.getLogger(__name__)
 from starlette.middleware.base import BaseHTTPMiddleware
 from dataclasses import dataclass
 from typing import Dict, Tuple, List

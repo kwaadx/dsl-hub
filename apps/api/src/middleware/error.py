@@ -1,3 +1,9 @@
+from __future__ import annotations
+
+import logging
+
+logger = logging.getLogger(__name__)
+
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from fastapi import HTTPException as FastHTTPException
@@ -22,8 +28,9 @@ def _error_response(status_code: int, code: str, message: str, details: Optional
     content = {
         "code": code,
         "message": message,
+        "status": status_code,
         "details": detail_list,
-        "error": {"code": code, "message": message, "details": detail_list},
+        "error": {"code": code, "message": message, "status": status_code, "details": detail_list},
     }
     return JSONResponse(status_code=status_code, content=content)
 

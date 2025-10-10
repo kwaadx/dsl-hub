@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+
+import logging
+
+logger = logging.getLogger(__name__)
 import time
 from typing import Callable, Awaitable
 from starlette.middleware.base import BaseHTTPMiddleware

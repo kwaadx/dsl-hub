@@ -1,9 +1,11 @@
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends
+from ..deps import uc_list_flows, uc_create_flow, uc_update_flow, uc_delete_flow, Response
 from sqlalchemy.orm import Session
 
-from ..database import get_db
+from ..deps import db_session
+from sqlalchemy.orm import Session
 from ..dto import CreateFlow, FlowOut, ThreadOut, UpdateFlow
 from ..repositories.flow_summary_repo import get_active, active_payload
 from ..services.flow_service import FlowService
@@ -12,49 +14,49 @@ from ..services.pipeline_service import PipelineService
 router = APIRouter(prefix="/flows", tags=["flows"])
 
 @router.get("", response_model=list[FlowOut])
-def list_flows(db: Session = Depends(get_db)) -> List[FlowOut]:
+def list_flows(db: Session = Depends(db_session)) -> List[FlowOut]:
     svc = FlowService(db)
     rows = svc.list()
     return [FlowOut(**row) for row in rows]
 
 @router.post("", response_model=FlowOut, status_code=201)
-def create_flow(payload: CreateFlow, db: Session = Depends(get_db)) -> FlowOut:
+def create_flow(payload: CreateFlow, db: Session = Depends(db_session)) -> FlowOut:
     svc = FlowService(db)
     return FlowOut(**svc.create(payload.slug, payload.name))
 
 @router.get("/{flow_id}", response_model=FlowOut)
-def get_flow(flow_id: str, db: Session = Depends(get_db)) -> FlowOut:
+def get_flow(flow_id: str, db: Session = Depends(db_session)) -> FlowOut:
     svc = FlowService(db)
     return FlowOut(**svc.get_one(flow_id))
 
 @router.post("/{flow_id}/threads", response_model=ThreadOut, status_code=201)
-def create_thread_for_flow(flow_id: str, db: Session = Depends(get_db)) -> ThreadOut:
+def create_thread_for_flow(flow_id: str, db: Session = Depends(db_session)) -> ThreadOut:
     from ..services.thread_service import ThreadService
     return ThreadOut(**ThreadService(db).create(flow_id))
 
 @router.get("/{flow_id}/threads", response_model=list[ThreadOut])
-def list_threads_for_flow(flow_id: str, db: Session = Depends(get_db)) -> list[ThreadOut]:
+def list_threads_for_flow(flow_id: str, db: Session = Depends(db_session)) -> list[ThreadOut]:
     from ..services.thread_service import ThreadService
     rows = ThreadService(db).list_for_flow(flow_id)
     return [ThreadOut(**row) for row in rows]
 
 @router.get("/{flow_id}/pipelines")
-def list_pipelines_for_flow(flow_id: str, published: int | None = None, db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
+def list_pipelines_for_flow(flow_id: str, published: int | None = None, db: Session = Depends(db_session)) -> List[Dict[str, Any]]:
     return PipelineService(db).list_for_flow(flow_id, published=published)
 
 @router.get("/{flow_id}/summary/active")
-def get_active_flow_summary(flow_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def get_active_flow_summary(flow_id: str, db: Session = Depends(db_session)) -> Dict[str, Any]:
     fs = get_active(db, flow_id)
     return active_payload(fs)
 
 @router.delete("/{flow_id}", status_code=204)
-def delete_flow(flow_id: str, db: Session = Depends(get_db)) -> Response:
+def delete_flow(flow_id: str, db: Session = Depends(db_session)) -> Response:
     svc = FlowService(db)
     svc.delete(flow_id)
     return Response(status_code=204)
 
 @router.patch("/{flow_id}", response_model=FlowOut)
-def update_flow(flow_id: str, payload: UpdateFlow, db: Session = Depends(get_db)) -> FlowOut:
+def update_flow(flow_id: str, payload: UpdateFlow, db: Session = Depends(db_session)) -> FlowOut:
     svc = FlowService(db)
     row = svc.update(flow_id, name=payload.name, slug=payload.slug)
     return FlowOut(**row)

@@ -1,88 +1,55 @@
 from __future__ import annotations
-import os
-from typing import Optional
 
-from pydantic_settings import BaseSettings
+from typing import Optional, List
 from pydantic import Field
+from pydantic_settings import BaseSettings
 
-
-def _assemble_dsn() -> str:
-    user = os.getenv("DB_USER", "postgres")
-    password = os.getenv("DB_PASSWORD", "postgres")
-    host = os.getenv("DB_HOST", "db")
-    port = os.getenv("DB_PORT", "5432")
-    name = os.getenv("DB_NAME", "dsl_hub")
-    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{name}"
-
-
-def _get_bool(name: str, default: bool) -> bool:
-    v = os.getenv(name)
-    if v is None:
-        return default
-    v = v.strip().lower()
-    return v in ("1", "true", "yes", "on")
-
-
-def _csv_env(name: str, default: str) -> list[str]:
-    """Parse CSV env var into a list; returns ["*"] if value is "*" or empty."""
-    raw = os.getenv(name, default)
-    if raw is None:
-        return ["*"] if default.strip() in ("*", "") else [p.strip() for p in default.split(",") if p.strip()]
-    raw = raw.strip()
-    if raw in ("*", ""):
+def _csv(value: str) -> List[str]:
+    value = (value or "").strip()
+    if value in ("", "*"):
         return ["*"]
-    return [p.strip() for p in raw.split(",") if p.strip()]
-
+    return [v.strip() for v in value.split(",") if v.strip()]
 
 class Settings(BaseSettings):
-    # Database config (завжди з DB_*)
-    DB_HOST: str = Field(default="db")
-    DB_PORT: int = Field(default=5432)
-    DB_NAME: str = Field(default="dsl_hub")
-    DB_USER: str = Field(default="postgres")
-    DB_PASSWORD: str = Field(default="postgres")
+    LOG_LEVEL: str = Field(default="info", env="LOG_LEVEL")
+    DB_HOST: str = Field(default="db", env="DB_HOST")
+    DB_PORT: int = Field(default=5432, env="DB_PORT")
+    DB_NAME: str = Field(default="dsl_hub", env="DB_NAME")
+    DB_USER: str = Field(default="postgres", env="DB_USER")
+    DB_PASSWORD: str = Field(default="postgres", env="DB_PASSWORD")
+    DB_SCHEMA: Optional[str] = Field(default=None, env="DB_SCHEMA")
 
     @property
     def dsn(self) -> str:
-        """DSN для SQLAlchemy/psycopg2."""
-        return _assemble_dsn()
+        schema_q = f"?schema={self.DB_SCHEMA}" if self.DB_SCHEMA else ""
+        return f"postgresql+psycopg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}{schema_q}"
+    @property
+    def DSN(self) -> str:
+        return self.dsn
 
-    # App options (load from environment with API_* prefix where applicable)
-    SCHEMA_CHANNEL: str = os.getenv("API_SCHEMA_CHANNEL", "stable")
-    SIMILARITY_THRESHOLD: float = float(os.getenv("API_SIMILARITY_THRESHOLD", "0.75"))
-    SSE_PING_INTERVAL: int = int(os.getenv("API_SSE_PING_INTERVAL", "15"))
-    SSE_BUFFER_TTL_SEC: int = int(os.getenv("API_SSE_BUFFER_TTL_SEC", "300"))
-    SSE_BUFFER_MAXLEN: int = int(os.getenv("API_SSE_BUFFER_MAXLEN", "500"))
-    APP_VERSION: str = os.getenv("APP_VERSION", "0.1.0")
-    MAX_JSON_SIZE: int = int(os.getenv("API_MAX_JSON_SIZE", "1048576"))
-    # Feature flags
-    EMIT_LEGACY_AGENT_MSG: bool = _get_bool("API_EMIT_LEGACY_AGENT_MSG", True)
-
-    # Chat limits (Stage 12)
-    MESSAGES_RATE_PER_MINUTE: int = int(os.getenv("API_MESSAGES_RATE_PER_MINUTE", "30"))
-    MESSAGE_TEXT_MAX_LEN: int = int(os.getenv("API_MESSAGE_TEXT_MAX_LEN", "4000"))
-
-    # Idempotency / Security
-    IDEMPOTENCY_TTL_SEC: int = int(os.getenv("API_IDEMPOTENCY_TTL_SEC", "300"))
-    IDEMPOTENCY_CACHE_MAX: int = int(os.getenv("API_IDEMPOTENCY_CACHE_MAX", "1000"))
-    AUTH_TOKEN: Optional[str] = os.getenv("API_AUTH_TOKEN") or None
-
-    # Init seed
-    INIT_SCHEMA_ON_START: bool = _get_bool("API_INIT_SCHEMA_ON_START", True)
-    INIT_SCHEMA_PATH: Optional[str] = os.getenv("API_INIT_SCHEMA_PATH") or None
-
-    # LLM
-    LLM_TIMEOUT: int = int(os.getenv("API_LLM_TIMEOUT", "30"))
-    LLM_RETRIES: int = int(os.getenv("API_LLM_RETRIES", "3"))
-    OPENAI_API_KEY: Optional[str] = os.getenv("API_OPENAI_API_KEY") or None
-    OPENAI_MODEL: str = os.getenv("API_OPENAI_MODEL", "gpt-4o-mini")
-    OPENAI_BASE_URL: Optional[str] = os.getenv("API_OPENAI_BASE_URL") or None
-
-    # CORS
+    API_HOST: str = Field(default="0.0.0.0", env="API_HOST")
+    API_PORT: int = Field(default=8000, env="API_PORT")
+    APP_VERSION: str = Field(default="0.1.0", env="APP_VERSION")
+    API_INIT_SCHEMA_ON_START: bool = Field(default=True, env="API_INIT_SCHEMA_ON_START")
+    API_INIT_SCHEMA_PATH: str = Field(default="v1.0.0.json", env="API_INIT_SCHEMA_PATH")
+    API_SCHEMA_CHANNEL: str = Field(default="stable", env="API_SCHEMA_CHANNEL")
+    API_MAX_JSON_SIZE: int = Field(default=1_048_576, env="API_MAX_JSON_SIZE")
+    API_SSE_PING_INTERVAL: int = Field(default=15, env="API_SSE_PING_INTERVAL")
+    API_SSE_BUFFER_TTL_SEC: int = Field(default=300, env="API_SSE_BUFFER_TTL_SEC")
+    API_SSE_BUFFER_MAXLEN: int = Field(default=500, env="API_SSE_BUFFER_MAXLEN")
+    API_IDEMPOTENCY_TTL_SEC: int = Field(default=300, env="API_IDEMPOTENCY_TTL_SEC")
+    API_IDEMPOTENCY_CACHE_MAX: int = Field(default=1000, env="API_IDEMPOTENCY_CACHE_MAX")
+    API_LLM_TIMEOUT: int = Field(default=30, env="API_LLM_TIMEOUT")
+    API_LLM_RETRIES: int = Field(default=3, env="API_LLM_RETRIES")
+    API_OPENAI_API_KEY: Optional[str] = Field(default=None, env="API_OPENAI_API_KEY")
+    API_OPENAI_MODEL: str = Field(default="gpt-4o-mini", env="API_OPENAI_MODEL")
+    API_OPENAI_BASE_URL: Optional[str] = Field(default=None, env="API_OPENAI_BASE_URL")
+    API_CORS_ORIGINS: str = Field(default="*", env="API_CORS_ORIGINS")
     @property
     def CORS_ORIGINS(self) -> list[str]:
-        # CSV list; "*" means allow all
-        return _csv_env("API_CORS_ORIGINS", "*")
-
+        return _csv(self.API_CORS_ORIGINS)
+    class Config:
+        env_file = ".env"
+        case_sensitive = False
 
 settings = Settings()

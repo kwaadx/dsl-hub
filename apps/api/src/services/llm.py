@@ -1,9 +1,9 @@
-"""
-OpenAI-only LLM client.
-Removes mock/provider switching. Requires API_OPENAI_API_KEY to be set.
-"""
 from __future__ import annotations
 
+
+import logging
+
+logger = logging.getLogger(__name__)
 import asyncio
 import json
 from typing import Any, Optional, Dict, Callable
