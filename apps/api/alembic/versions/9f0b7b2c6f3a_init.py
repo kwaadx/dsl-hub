@@ -5,8 +5,6 @@ Revises: a47e1e313db5
 Create Date: 2025-10-04 12:50:01.247306
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 from alembic import op
 
